@@ -1,0 +1,84 @@
+
+Section: Reindex
+
+Let's create a new index named monday_transactions for all the transactions that were on a Monday, and the new index should no longer have the field day_of_week, and it should have a new field called is_big_purchase that's set to true if the total_quantity is more than 2, otherwise it should be false
+
+GET _cat/indices?v&h=index&s=index
+
+
+POST _reindex
+{
+  "source": {
+    "index": "store_transactions",
+    "query": {
+      "match": {
+        "day_of_week": "Monday"
+      }
+    }
+  },
+  "dest": {
+    "index": "monday_transactions"
+  },
+  "script": {
+    "source": "ctx._source.remove('day_of_week'); if (ctx._source.total_quantity >2) {ctx._source.is_big_purchase = true; } else {ctx._source.is_big_purchase = false;}",
+    "lang": "painless"
+  }
+}
+
+GET monday_transactions/_search
+
+
+Section: update_by_query
+
+On all documents add field called is_in_MENA that is true if city_name is Dubai, Abu Dhabi or Cairo
+
+Answer
+POST store_transactions/_update_by_query
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match": {
+            "geoip.city_name": "Dubai"
+          }
+        },
+        {
+          "match": {
+            "geoip.city_name": "Abu Dhabi"
+          }
+        },
+        {
+          "match": {
+            "geoip.city_name": "Cairo"
+          }
+        }
+      ],
+      "minimum_should_match": 1
+    }
+  },
+  "script": {
+    "source": "ctx._source.is_in_MENA = true"
+  }
+}
+
+Now verify that it worked properly
+GET store_transactions/_search
+{
+  "query": {
+    "match": {
+      "geoip.city_name": "Dubai"
+    }
+  }
+}
+Yes --> "is_in_MENA" : true
+
+GET store_transactions/_search
+{
+  "query": {
+    "match": {
+      "geoip.city_name": "New York"
+    }
+  }
+}
+Yes, doesnt have the field

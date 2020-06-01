@@ -1,0 +1,113 @@
+Lab 2.3
+
+Which blogs have a content field that includes at least 2 of the terms performance or optimizations or improvements?
+**NEED TO MEMORIZE EXAMPLES OF BOOLEAN SHOULD/MUST and MUST_NOT
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match": {
+            "content": "performance"
+          }
+        },
+        {
+          "match": {
+            "content": "optimizations"
+          }
+        },
+        {
+          "match": {
+            "content": "improvements"
+          }
+        }
+      ],
+      "minimum_should_match": 2
+    }
+  }
+}
+
+    "should" : [
+        { "term" : { "tag" : "wow" } },
+        { "term" : { "tag" : "elasticsearch" } }
+      ],
+
+
+
+Assuming that you are not interested in upgrading your deployment, change the previous query (the should version) so that it must_not contain "released" or "releases" or "release" in the title field. Your top hits look better now
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must_not": [
+        {
+          "match": {
+            "title": "released release releases"
+          }
+        }
+      ], 
+      "should": [
+        
+        {
+          "match": {
+            "content": "performance"
+          }
+        },
+        {
+          "match": {
+            "content": "optimizations"
+          }
+        },
+        {
+          "match": {
+            "content": "improvements"
+          }
+        }
+      ],
+      "minimum_should_match": 2
+    }
+  }
+}
+
+
+GET blogs/_validate/query?rewrite=true
+{
+  "query": {
+    "bool": {
+      "should": [
+        
+        {
+          "match": {
+            "content": "performance"
+          }
+        },
+        {
+          "match": {
+            "content": "optimizations"
+          }
+        },
+        {
+          "match": {
+            "content": "improvements"
+          }
+        }
+      ],
+      "minimum_should_match": 2
+    }
+  }
+}
+
+GET blogs/_validate/query?rewrite=true
+{
+  "query": {
+    "match": {
+      "content": {
+        "query" : "performance optimizations improvements",
+        "minimum_should_match" : 2
+      }
+    }
+  }
+}
+
+Lucene query is : "explanation" : "(content:performance content:optimizations content:improvements)~2"

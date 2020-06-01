@@ -1,0 +1,186 @@
+
+Lab 6.2: Aliases and Templates
+
+PUT /logs_server*/_alias/access_logs
+
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "logs_server*",
+        "alias": "access_logs"
+      }
+    }
+  ]
+}
+
+GET access_logs/_count
+
+PUT access_logs/_doc/3
+{
+  "@timestamp": "2017-05-05T02:07:51.407Z",
+  "host": "server1",
+  "user_agent": "Amazon CloudFront",
+  "originalUrl": "/blog/elasticsearch-5-4-0-released",
+  "response_size": 49921,
+  "input": {
+    "type": "log"
+  },
+  "http_version": "1.1",
+  "runtime_ms": 108,
+  "method": "GET",
+  "language": {
+    "url": "/blog/elasticsearch-5-4-0-released",
+    "code": "en-us"
+  },
+  "status_code": 200,
+  "geoip": {
+    "country_code3": "JP",
+    "continent_code": "AS",
+    "location": {
+      "lon": 139.69,
+      "lat": 35.69
+    },
+    "country_name": "Japan",
+    "country_code2": "JP"
+  },
+  "level": "info"
+}
+
+
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "logs_server3",
+        "alias": "access_logs",
+        "is_write_index": true
+      }
+    }
+  ]
+}
+
+
+GET logs_server1
+
+PUT _template/access_logs_template
+{
+  "index_patterns": ["logs_server*"],
+  "order": 10
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas" : "1"
+  },
+  "mappings": {}
+}
+
+PUT logs_server6
+GET logs_server6
+
+
+REMEMBER to set prior write index setting to false, if you wanna swap it out for a new write index
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "logs_server5",
+        "alias": "access_logs",
+        "is_write_index": true
+      }
+    },
+    {
+      "add": {
+        "index": "logs_server4",
+        "alias": "access_logs",
+        "is_write_index": false
+      }
+    },
+    {
+      "remove": {
+        "index": "logs_server1",
+        "alias": "access_logs"
+      }
+    }
+  ]
+}
+
+PUT access_logs/_doc/1
+{
+  "@timestamp": "2018-03-21T05:57:19.722Z",
+  "originalUrl": "/blog/logstash-jdbc-input-plugin",
+  "host": "server2",
+  "response_size": 58754,
+  "status_code": 200,
+  "method": "GET",
+  "runtime_ms": 143,
+  "geoip": {
+    "country_code2": "IN",
+    "country_code3": "IN",
+    "continent_code": "AS",
+    "location": {
+      "lon": 77.5833,
+      "lat": 12.9833
+    },
+    "region_name": "Karnataka",
+    "city_name": "Bengaluru",
+    "country_name": "India"
+  },
+  "language": {
+    "url": "/blog/logstash-jdbc-input-plugin",
+    "code": "en-us"
+  },
+  "user_agent": "Amazon CloudFront",
+  "http_version": "1.1",
+  "level": "info"
+}
+
+
+GET logs_server5/_doc/1
+
+
+
+PUT _scripts/daily_hits
+{
+  "script": {
+    "lang": "mustache",
+    "source": """
+    {
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": "{{start_date}}"
+                  {{#end_date}}
+                  ,
+                  "lt": "{{end_date}}"
+                  {{/end_date}}
+                }
+              }
+            },
+            {
+              "match": {
+                "originalURL.keyword":" {{url}}"
+              }
+            }
+          ]
+        }
+      }
+    }
+    """
+  }
+}
+
+GET _search/template
+{
+  "id": "daily_hits",
+  "params": {
+    "url": "/blog/brewing-in-beats-postgresql-module-in-filebeat",
+    "start_date": "2017-08-11"
+  }
+}
+     

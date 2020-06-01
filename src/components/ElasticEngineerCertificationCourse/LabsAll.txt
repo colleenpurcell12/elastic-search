@@ -1,0 +1,4014 @@
+PUT my_index/_doc/1
+{
+  "group" : "fans",
+  "user" : [
+    {
+      "first" : "John",
+      "last" :  "Smith"
+    },
+    {
+      "first" : "Alice",
+      "last" :  "White"
+    }
+  ]
+}
+
+GET  my_index/_mapping
+
+PUT blog_temp1/_doc/1
+{
+  "id" : "123",
+  "title": "best blog",
+  "products": ["elastic", "kibana"],
+  "authors": [
+    {
+      "name": "Colleen",
+      "company": {
+        "name": "Moodys",
+        "country": {
+          "name":"USA",
+          "code": "1"
+        }
+      }     
+    }
+    ]
+}
+
+GET blog_temp1/_mapping
+
+PUT denormalized_blogs
+{
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "keyword"
+      },
+      "title": {
+        "type": "text",
+        "analyzer": "english",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "products": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "authors": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword"
+              }
+            }
+          },
+          "company": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword"
+                  }
+                }
+              },
+              "country": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword"
+                      }
+                    }
+                  },
+                  "code": {
+                    "type": "keyword"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+POST denormalized_blogs/_bulk
+{"index":{"_id":1}}
+{"id":"1","title":"Time Series with Kibana","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}}]}
+{"index":{"_id":2}}
+{"id":"2","title":"Memory Issues We'll Remember","authors":[{"name":"Chris Overton","company":{"country":{"code":"FR","name":"France"},"name":"Globex"}},{"name":"Alex Brasetvik","company":{"country":{"code":"BR","name":"Brazil"},"name":"Elastic"}}]}
+{"index":{"_id":3}}
+{"id":"3","title":"Making Kibana Accessible","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}},{"name":"Tim Roes","company":{"country":{"code":"JP","name":"Japan"},"name":"Soylent"}}]}
+
+
+GET denormalized_blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {"match": {
+          "authors.name": "chris"
+        }},
+        {"match": {
+          "authors.company.name.keyword": "Globex"
+        }}
+      ]
+    }
+  }
+}
+
+Write and execute an aggregation that returns the top 5 companies that have an author who wrote a blog.
+
+GET denormalized_blogs/_search
+{
+  "size": 0, 
+  "aggs": {
+    "top_5_companies": {
+      "terms": {
+        "field": "authors.company.name.keyword",
+        "size": 5
+      }
+    }
+  }
+}
+
+GET denormalized_blogs/_search
+{
+  "_source": {
+    "includes": [
+      "authors.name",
+      "authors.company.name"
+    ]
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "authors.name": "alex"
+          }
+        },
+        {
+          "match": {
+            "authors.company.name.keyword": "Elastic"
+          }
+        }
+      ]
+    }
+  }
+}
+
+Use the denormalized_blogs mapping to create a new index named nested_blogs that has authors mapped as nested instead of object.
+
+
+GET denormalized_blogs/_mapping
+
+PUT nested_blogs
+{
+  "mappings": {
+    "properties": {
+      "authors": {
+        "type": "nested", 
+        "properties": {
+          "company": {
+            "properties": {
+              "country": {
+                "properties": {
+                  "code": {
+                    "type": "keyword"
+                  },
+                  "name": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword"
+                      }
+                    }
+                  }
+                }
+              },
+              "name": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword"
+                  }
+                }
+              }
+            }
+          },
+          "name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword"
+              }
+            }
+          }
+        }
+      },
+      "id": {
+        "type": "keyword"
+      },
+      "products": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        },
+        "analyzer": "english"
+      }
+    }
+  }
+} 
+    
+   POST nested_blogs/_bulk
+{"index":{"_id":1}}
+{"id":"1","title":"Time Series with Kibana","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}}]}
+{"index":{"_id":2}}
+{"id":"2","title":"Memory Issues We'll Remember","authors":[{"name":"Chris Overton","company":{"country":{"code":"FR","name":"France"},"name":"Globex"}},{"name":"Alex Brasetvik","company":{"country":{"code":"BR","name":"Brazil"},"name":"Elastic"}}]}
+{"index":{"_id":3}}
+{"id":"3","title":"Making Kibana Accessible","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}},{"name":"Tim Roes","company":{"country":{"code":"JP","name":"Japan"},"name":"Soylent"}}]}
+ 
+    
+    
+GET nested_blogs/_search
+{
+  "query": {
+    "nested": {
+      "path": "authors",
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "match": {
+                "authors.name": "alex"
+              }
+            },
+            {
+              "match": {
+                "authors.company.name.keyword": "Elastic"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+
+GET nested_blogs/_search
+{
+  "size": 0,
+   "aggs": {
+    "nested_author_agg": {
+      "nested": {
+        "path": "authors"
+      }, 
+      "aggs": {
+        "NAME": {
+          "terms": {
+            "field": "authors.company.name.keyword"
+          },
+          "aggs": {
+            "NAME": {
+              "terms": {
+                "field": "authors.name.keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+GET logs_server1/_search
+{
+  "size": 0,
+  "aggs": {
+    "http_methods": {
+      "terms": {
+        "field": "http.request.method"
+      }
+    }
+  }
+}
+
+POST version_test/_bulk
+{"index":{"_id":1}}
+{"version":"5.6.1"}
+{"index":{"_id":2}}
+{"version":"6.0.0"}
+{"index":{"_id":3}}
+{"version":"6.8.1"}
+
+
+all documents with a minor version 6.
+
+GET version_test/_search
+{
+  "query": {
+    "wildcard": {
+      "version.keyword": {
+        "value": "??6??"
+      }
+    }
+  }
+}
+
+POST version_fixed/_bulk
+{"index":{"_id":1}}
+{"version":{ "display_name": "5.6.1", "major": 5, "minor": 6, "bugfix": 1}}
+{"index":{"_id":2}}
+{"version":{ "display_name": "6.0.0", "major": 6, "minor": 0, "bugfix": 0}}
+{"index":{"_id":3}}
+{"version":{ "display_name": "6.8.1", "major": 6, "minor": 8, "bugfix": 1}}
+
+
+GET version_fixed/_search
+{
+  "query": {
+    "match": {
+      "version.minor": "6"
+    }
+  }
+}
+
+
+POST loglevel_test1/_doc/
+{
+  "level": "info"
+}
+
+POST loglevel_test2/_doc/
+{
+  "log_level": "warn"
+}
+
+
+Write a terms aggregation that returns the top log levels from accross the two loglevel_test1 and loglevel_test2 indexes.
+
+       
+
+
+GET loglevel_test*/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_log_levels": {
+      "terms": {
+        "script": "if (doc.containsKey('level.keyword')) { return doc['level.keyword'].value } else { return doc['log_level.keyword'].value }"
+      }
+    }
+  }
+}
+
+Update the mapping of the loglevel_test1 index and add a log field of type object, with a property level to it. Map level as an alias that points to the level.keyword field. Do the same for the loglevel_test2 index, but now point the level alias to the log_level.keyword field.
+
+GET loglevel_test1/_mapping
+PUT loglevel_test1/_mapping
+{
+  "properties": {
+    "log": {
+      "properties": {
+        "level": {
+          "type": "alias",
+          "path": "level.keyword"
+        }
+      }
+    }
+    
+  }
+}
+PUT loglevel_test2/_mapping
+{
+  "properties": {
+    "log": {
+      "properties": {
+        "level": {
+          "type": "alias",
+          "path": "log_level.keyword"
+        }
+      }
+    }
+    
+  }
+}
+
+GET loglevel_test*/_search?size=0
+{
+  "aggs": {
+    "top_logs": {
+      "terms": {
+        "field": "log.level",
+        "size": 10
+      }
+    }
+  }
+}
+
+GET loglevel*/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_levels": {
+      "terms": {
+        "field": "log.level",
+        "size": 10
+      }
+    }
+  }
+}
+
+GET _analyze
+{
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+GET _analyze
+{
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!",
+  "analyzer": "whitespace"
+}
+
+
+GET _analyze
+{
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!",
+  "analyzer": "english"
+}
+
+GET _analyze
+{
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!",
+  "char_filter": [],
+  "tokenizer": "standard",
+  "filter": ["lowercase","snowball"]
+}
+
+
+
+
+PUT my_index1
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_custom_analyzer1": {
+          "type": "custom", 
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "asciifolding"
+          ]
+        }
+      }
+    }
+  }
+}
+
+GET my_index1/_analyze 
+{
+  "analyzer": "my_custom_analyzer1", 
+  "text": "Elasticsearch é um motor de buscas distribuído."
+
+}
+
+GET _analyze 
+{
+  "analyzer": "english", 
+"text": "C++ can help it and your IT systems."
+
+}
+
+EXAM PREP: To solve the problem discussed above, you need to write your own custom analyzer that handles text like C++ and IT in a better manner. Create an index named analysis_test that has an analyzer named my_analyzer which satisfies the following:
+
+allow queries for C++ to match only documents that contain C++ (TIP: transform c++ and C++ into cpp)
+
+allow queries for IT to match only documents that contain IT and not it. (TIP: transform IT into _IT_ before lowercase)
+
+lowercase all text
+
+remove the default stop words
+
+remove the following terms as well: can, we, our, you, your, all
+
+
+PUT analysis_test
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_analyzer": { 
+          "type": "custom",
+          "tokenizer": "standard",
+          "char_filter": [
+            "prog_lang"
+          ],
+          "filter": [
+            "lowercase",
+            "stop",
+            "custom_stop"
+          ]
+        }
+      },
+
+      "char_filter": {
+        "prog_lang": { 
+          "type": "mapping",
+          "mappings": [
+            "c++ => cpp",
+            "C++ => cpp",
+            "IT => _IT_"
+          ]
+        }
+      },
+      "filter": {
+        "custom_stop": { 
+          "type": "stop",
+          "stopwords": ["can", "we", "our", "you", "your", "all"]
+        }
+      }
+    }
+  }
+}
+
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": "c++"
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "title": "IT"
+    }
+  }
+}
+
+
+EXAM PREP: Now, setup a new blogs index with the same data, but using a better, more appropriate analyzer:
+
+Create a new index named blogs_analyzed that uses your custom my_analyzer from the previous step
+
+Use the mappings from blogs and add a multi-field to both the content and title fields named my_analyzer. These multi-fields should be of type text and set the analyzer to my_analyzer.
+
+PUT blogs_analyzed
+{
+  "settings": {
+     "analysis": {
+      "analyzer": {
+        "my_analyzer": { 
+          "type": "custom",
+          "tokenizer": "standard",
+          "char_filter": [
+            "prog_lang"
+          ],
+          "filter": [
+            "lowercase",
+            "stop",
+            "custom_stop"
+          ]
+        }
+      },
+
+      "char_filter": {
+        "prog_lang": { 
+          "type": "mapping",
+          "mappings": [
+            "c++ => cpp",
+            "C++ => cpp",
+            "IT => _IT_"
+          ]
+        }
+      },
+      "filter": {
+        "custom_stop": { 
+          "type": "stop",
+          "stopwords": ["can", "we", "our", "you", "your", "all"]
+        }
+      }
+    }
+  },
+    "mappings": {
+      "properties": {
+        "title": {
+          "type": "text",
+          "fields": {
+            "my_analyzer": {
+              "type": "text",
+              "analyzer": "my_analyzer"
+            }
+          }
+        },
+        "content": {
+          "type": "text",
+          "fields": {
+            "my_analyzer": {
+              "type": "text",
+              "analyzer": "my_analyzer"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+POST blogs_fixed/_update_by_query
+{
+  "query": {
+    "range": {
+      "updateBatch": {
+        "lt": 1
+      }
+    }
+  },
+  "script": {
+    "source": "ctx._source['updateBatch']=1"
+  }
+}
+
+PUT blogs_fixed
+{
+  "mappings": {
+    "properties": {
+      "author": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "category": {
+        "type": "keyword"
+      },
+      "content": {
+        "type": "text"
+      },
+      "locales": {
+        "type": "keyword"
+      },
+      "publish_date": {
+        "type": "date"
+      },
+      "seo_title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "title": {
+        "type": "text"
+      },
+      "url": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "number_of_views": {
+        "type": "integer"
+      },
+      "reindexBatch": {
+        "type": "byte"
+      }
+    }
+  }
+}
+
+"script": {
+    "source": "ctx._source['reindexBatch'] = 1;"
+  }
+  
+  
+  Reindex blogs into blogs_fixed. Make sure to use the script above to set the reindexBatch to 1. You should see 1,594 blogs created in blogs_fixed. View some of the documents in blogs_fixed and verify that the reindexBatch field was added properly.
+  
+  
+  POST _reindex
+{
+  "source": {
+    "index": "blogs"
+  },
+  "dest": {
+    "index": "blogs_fixed"
+  },
+  "script": {
+    "source": "ctx._source.reindexBatch = 1"
+  }
+}
+  
+  
+EXAM PREP: Using an _update_by_query, update all the documents in blogs_fixed with a 
+reindexBatch equal to 1. Use the script given above to update the reindexBatch to 2 on all documents.
+
+
+POST blogs_fixed/_update_by_query
+{
+  "script": {
+    "source": "ctx._source.reindexBatch = 2",
+    "lang": "painless"
+  },
+  "query": {
+    "term": {
+      "reindexBatch": "1"
+    }
+  }
+}
+
+Delete all the documents where the category is Releases. You should delete 238 documents.
+
+
+
+POST blogs_fixed/_delete_by_query
+{
+  "query": {
+    "term": {
+      "category": "Releases"
+    }
+  }
+}
+
+EXAM PREP: The locales field is empty for 1,290 documents, which is over 90% of the index. These particular documents should have the 
+English locale "en-en". Also, as discussed in the lecture, this field would be much easier to search and aggregate on if it was indexed as an array instead of a single comma-separated list of values. To fix locales, write a pipeline that satisfies the following criteria:
+
+The name of the pipeline is fix_locales
+
+The first processor is a set processor that checks if the locales field is an empty string. If it is empty, assign it the value "en-en". If it is not empty, leave the field as is. TIP: To check if a field is empty you can use ctx['field'].empty in the if option of your processor.
+
+The second set processor should set reindexBatch to 3 for every document
+
+The third processor is a split processor that splits the locales field into an array, using a comma as the separator
+
+PUT _ingest/pipeline/fix_locales
+{
+  "description": "outer pipeline",
+  "processors": [
+    {
+      "set": {
+        "if": "ctx['locales'].empty",
+        "field": "locales",
+        "value": "en-en"
+      }
+    },
+    {
+      "set": {
+        "field": "reindexBatch",
+        "value": "3"
+      }
+    },
+    {
+      "split": {
+        "field": "locales",
+        "separator": ","
+      }
+    }
+  ]
+}
+
+
+POST /_ingest/pipeline/fix_locales/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "locales": "de-de,fr-fr,ja-jp,ko-kr"
+      }
+    },
+    {
+      "_source": {
+        "locales": ""
+      }
+    }
+  ]
+}
+
+
+EXAM PREP: Using an _update_by_query, update all documents in blogs_fixed with a reindexBatch equal to 2. Use the fix_locales pipeline to update the documents.
+
+
+POST blogs_fixed/_update_by_query?pipeline=fix_locales
+{
+  "query": {
+    "term": {
+      "reindexBatch": "2"
+    }
+  }
+}
+
+
+
+
+PUT _ingest/pipeline/underscore_locales1
+{
+  "description" : "inner pipeline",
+  "processors" : [
+    {
+      "foreach" : {
+        "field" : "locales",
+        "processor" : {
+          "gsub": {
+            "field": "_ingest._value",
+            "pattern": "-",
+            "replacement": "_"
+          }
+        }
+      }
+    },
+    {
+      "set" : {
+        "field": "reindexBatch",
+        "value": "4"
+      }
+    }
+  ]
+}
+
+POST /_ingest/pipeline/underscore_locales/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "locales": [
+          "de-de",
+          "fr-fr",
+          "ja-jp",
+          "ko-kr",
+          "zh-chs"
+        ]
+      }
+    }
+  ]
+}
+
+POST blogs_fixed/_update_by_query?pipeline=underscore_locales
+{
+  "query":{
+    "reindexBatch": 3
+  }
+}
+
+PUT my_index/_doc/1?pipeline=my_pipeline
+{
+  "author": "Monica Sarbu",
+  "category": "Brewing in Beats"
+}
+
+
+
+POST _reindex
+{
+  "source": {
+    "index": "my_index"
+  },
+  "dest": {
+    "index": "new_index",
+    "pipeline": "my_pipeline"
+  }
+}
+
+PUT my_index
+{
+  "settings": {
+    "default_pipeline": "my_pipeline"
+  }
+}
+
+
+POST my_index/_update/1
+{
+  "script": {
+    "id": "add_new_views",
+    "params": {
+      "new_views": 2
+    }
+  }
+}
+
+EXAM PREP: Define an ingest pipeline that satisfies the following criteria:
+
+The name of the pipeline is fix_seo_title
+
+Add a script processor that checks if the seo_title is equal to an empty string "". If it is, set seo_title to the value of the document’s title field.
+
+Set the value of reindexBatch to 5 for every document
+
+
+
+PUT _ingest/pipeline/fix_seo_title
+{
+  "description": "use index:my_index and type:_doc",
+  "processors": [
+    {
+      "script": {
+        "source": """
+          if(ctx['seo_title']==""){
+            ctx['seo_title'] = ctx['title']
+          }
+            
+          """
+      }
+    },
+    {
+      "set": {
+        "field": "reindexBatch",
+        "value": 5
+      }
+    }
+  ]
+}
+
+
+POST /_ingest/pipeline/fix_seo_title/_simulate
+{
+  "docs": [
+    {
+      "_index": "index",
+      "_id": "id",
+      "_source": {
+        "title": "Where in the World is Elastic? - Elastic{ON}Tour London & Paris",
+        "seo_title": ""
+      }
+    },
+    {
+      "_index": "index",
+      "_id": "id",
+      "_source": {
+        "title": "This week in Elasticsearch and Apache Lucene",
+        "seo_title": "What's new in Elasticsearch and Apache Lucene"
+      }
+    }
+  ]
+}
+
+EXAM PREP: Run an _update_by_query on blogs_fixed, sending each document through your fix_seo_title pipeline. Your update by query should only update documents that have a reindexBatch value equal to 4. You should see that all 1,356 documents are updated.
+
+
+
+POST blogs_fixed/_update_by_query?pipeline=fix_seo_title
+{
+  "query": {
+    "match": {
+      "reindexBatch": 4
+    }
+  }
+}
+
+Next, imagine that every document in blogs_fixed should have the number of views of that blog. Run an update_by_query with a script that sets the number_of_views field to 0 on every document.
+
+POST blogs_fixed/_update_by_query
+{
+  "script": {
+    "source": "ctx._source['number_of_views'] = 0"
+  }
+}
+
+
+Using an _update and an inline script, add 41 to the number_of_views field of the blog above. You will need the _id of the blog, which you already copied from the result of the first query in the previous step.
+
+
+POST test/_update/123
+{
+  "script": {
+    "source": "ctx._source.number_of_views += params.count",
+    "lang": "painless",
+    "params": {
+      "count": 41
+    }
+  }
+}
+
+store this script
+
+The script is stored in the cluster state with the id add_to_number_of_views
+
+The script increments number_of_views by the amount of the value in a parameter named new_views
+
+POST _scripts/add_to_number_of_views
+{
+  "script": {
+    "lang": "painless",
+    "source": "ctx._source['number_of_views'] += param['new_views']"
+  }
+}
+
+Using the script add_to_number_of_views, increment the number_of_views for this blog by 11 and verify that the new value of number_of_views is 52.
+
+PUT /blog/_update/1234
+{
+    "script": {
+        "id": "add_to_number_of_views",
+        "params": {
+            "new_views": 11
+        }
+    }
+}
+
+
+Write a script add_random_number_of_views which sets the field number_of_views to a random integer between 0 and 10,000. You will use this script in an ingest pipeline so make sure to use the syntax accordingly.
+
+
+POST _scripts/add_random_number_of_views
+{
+  "script": {
+    "lang": "painless",
+    "source": "ctx._source['number_of_views'] = Random()*10,000"
+  }
+}
+
+OPTIONAL: Create an ingest pipeline number_of_views which uses the script that you previously created.
+
+
+
+PUT _ingest/pipeline/number_of_views
+{
+  "description": "sets the value of host.os.name from the field os",
+  "processors": [
+    {
+        "script": {
+          "id": "add_random_number_of_views"
+        }
+      }
+  ]
+}
+
+OPTIONAL: Update every blogs except the one that you already updated (the url is /blog/elasticsearch-storage-the-true-story). You should update 1,355 documents.
+
+
+POST blogs/_update_by_query?pipeline=number_of_views
+{
+  "query": {
+    "bool": {
+      "must_not": [
+        {
+          "match": {
+            "url.keyword": "/blog/elasticsearch-storage-the-true-story"
+          }
+        }
+      ]
+    }
+  }
+}
+
+GET /_cat/indices?v&s=index
+
+
+Create one index called temp3 that has three primary shards and zero replica shards, and disable refresh. You are creating temp3 with index.refresh_interval set to -1 and index.number_of_replicas set to 0 because you are going to load a large amount of data at once in the next steps.
+
+PUT /temp3
+{
+    "settings" : {
+        "index" : {
+            "number_of_shards" : 3, 
+            "number_of_replicas" : 0,
+            "refresh_interval": -1
+        }
+    }
+}
+
+Reindex all documents from logs_server* into temp3. Set wait_for_completion to false, so you can proceed to the next steps.
+
+
+
+POST _reindex?wait_for_completion=false
+{
+  "dest": {
+    "index": "temp3"
+  },
+  "source": {
+    "index": "logs_server*"
+  }
+}
+
+PUT /temp3
+{
+    "settings" : {
+        "index" : {
+            "refresh_interval": "1s"
+        }
+    }
+}
+
+PUT _snapshot/my_repo
+{
+  "type": "fs",
+  "settings": {
+    "location": "/mnt/my_repo_folder"
+  }
+}
+
+
+
+PUT _snapshot/my_repo/my_logs_snapshot_1
+{
+  "indices": "logs-*",
+  "ignore_unavailable": true,
+  "include_global_state": true
+}
+
+POST _snapshot/my_repo/my_snapshot_2/_restore
+{
+  "indices": "logs-*",
+  "ignore_unavailable": true,
+  "include_global_state": false
+}
+
+POST _snapshot/my_repo/my_snapshot_2/_restore
+{
+  "indices": "logs-*",
+  "ignore_unavailable": true,
+  "include_global_state": false,
+  "rename_pattern": "logs-(.+)",
+  "rename_replacement": "restored-logs-$1"
+}
+
+Within the Kibana Console, register the /shared_folder/my_repo directory as a repository called my_local_repo.
+
+
+PUT /_snapshot/my_local_repo
+{
+  "type": "fs",
+  "settings": {
+    "location": "/shared_folder/my_repo"
+  }
+}
+
+Take a snapshot named cluster_snapshot_1 of the logs_server* indices, including the cluster state, and save the snapshot in your new repository.
+
+
+PUT /_snapshot/my_local_repo/cluster_snapshot_1
+{
+  "indices": "logs_server*",
+  "include_global_state": true
+}
+
+GET /_snapshot/my_local_repo/_all
+
+Restore the logs_server* indices using your snapshot from the previous step. Do not restore the cluster state (your current cluster state is fine). Rename the indices as they get restored to restored_logs_1, restored_logs_2 and restored_logs_3.
+
+
+
+POST /_snapshot/my_local_repo/cluster_snapshot_1/_restore
+{
+  "indices": "logs_server*",
+  "ignore_unavailable": true,
+  "include_global_state": false,
+  "rename_pattern": "logs_server(.+)",
+  "rename_replacement": "restored_index_$1"
+}
+
+Stop node1 and node3 and add the attribute my_rack set to rack1 in their configuration files.
+
+
+node.attr.my_rack: rack1
+
+
+
+
+PUT /_cluster/settings
+{
+    "transient" : {
+        "cluster.routing.allocation.awareness.attributes": "my_rack" 
+
+    }
+}
+
+PUT /_cluster/settings
+{
+    "persistent": {
+        "cluster.routing.allocation.awareness.attributes": "my_rack" ,
+        "cluster.routing.allocation.awareness.force.my_rack.values": "rack1, rack2"
+    }
+}
+
+
+cluster.routing.allocation.awareness.attributes: zone
+cluster.routing.allocation.awareness.force.zone.values: zone1,zone2
+
+from a node on the original cluster, set up cross cluster search on my_cluster_2
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster": {
+      "remote": {
+        "my_cluster_2": {
+          "seeds": [
+            "server6:9300"
+          ]
+        }
+      }
+    }
+  }
+}
+
+Run a search on my_cluster that hits all documents in both comments indices (the comments index on my_cluster and the comments index on my_cluster_2). You should get 4 hits
+
+GET /comments,my_cluster_2:comments/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+
+Use curl to create a follower index called my_replicated_blogs, which references to my_cluster and its leader index my_replicated_blogs.
+
+
+
+PUT /my_replicated_blogs/_ccr/follow
+{
+  "remote_cluster": "my_cluster",
+  "leader_index": "my_replicated_blogs"
+}
+
+
+Reindex the blogs from blogs index into my_replicated_blogs index in my_cluster.
+
+careful, it does not provide any security
+!421
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "blogs_v1",
+        "alias": "blogs_engineering",
+        "filter": {
+          "match": {
+            "category": "Engineering"
+          }
+        }
+      }
+    }
+  ]
+}
+Any query on the
+blogs_engineering alias will only
+include blogs that are in the
+“Engineering” category
+
+
+
+
+Create a new index named logs-000001 that meets the following criteria:
+
+it has 4 primary shards and 1 replica shard;
+
+it uses shard filtering to allocate shards to hot nodes;
+
+it has an alias named logs with is_write_index set to true
+
+PUT test/_settings
+{
+  "index.routing.allocation.include.size": "big",
+  "index.routing.allocation.include.rack": "rack1"
+}
+
+
+PUT logs-000001
+{
+  "settings": {
+    "number_of_replicas": 1,
+    "number_of_shards": 4,
+    "routing": {
+      "allocation": {
+        "require": {
+          "my_temp": "hot"
+        }
+      }
+    }
+  },
+  "aliases": {
+    "logs": {
+      "is_write_index": true
+    }
+  }
+}
+
+Your current cluster has three indices containing the web access logs. Define an alias named access_logs that points to all three logs_server* indices.
+
+
+
+
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "logs_server*",
+        "alias": "access_logs"
+      }
+    },
+  ]
+}
+
+Configure logs_server3 to be the write index in your current alias using the is_write_index parameters and try to index the document again.
+
+
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "logs_server3",
+        "alias": "access_logs",
+        "is_write_index": "true"
+      }
+    },
+  ]
+}
+
+Define an index template named access_logs_template that matches logs_server* and has the same index settings and mappings as your three current logs_server* indices. Use 10 for the order value.
+
+GET logs_server
+
+PUT _template/access_logs_template
+{
+  "index_patterns": ["logs_server*"],
+  "order" : 10,
+  "settings": {
+    "number_of_shards": 1
+  },
+  "mappings": {
+    "_source": {
+      "enabled": false
+    },
+    "properties": {
+      "host_name": {
+        "type": "keyword"
+      },
+      "created_at": {
+        "type": "date",
+        "format": "EEE MMM dd HH:mm:ss Z yyyy"
+      }
+    }
+  }
+}
+
+PUT logs_server4
+GET logs_server4
+
+n the same request, remove logs_server1 from the access_logs alias and update the same alias to write to logs_server4 instead of logs_server3
+
+POST _aliases
+{
+  "actions": [
+    {
+      "remove": {
+        "index": "logs_server1",
+        "alias": "access_logs"
+      }
+    },
+    {
+      "add": {
+        "index": "logs_server4",
+        "alias": "access_logs",
+        "is_write_index": true
+      }
+    },
+    {
+      "add": {
+        "index": "logs_server3",
+        "alias": "access_logs",
+        "is_write_index": false
+      }
+    }
+  ]
+}
+Index the following document using the access_logs alias, assigning the _id to 1. Then GET the document in the logs_server4 index to verify the alias worked successfully:
+
+
+PUT access_logs/_doc/1
+
+Make a search template for this query named daily_hits that uses the following parameters:
+
+GET logs_server*/_search
+
+POST _scripts/daily_hits
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": "{{start_date}}",
+                  "lt": "{{end_date}}"
+                }
+              }
+            },
+            {
+              "match": {
+                "originalUrl.keyword": "{{url}}"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+
+est your daily_hits search template using the following values:
+
+PUT _scripts/my_search_template
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+      "query": {
+        "match": {
+          "{{my_field}}": "{{my_value}}"
+        }
+      }
+    }
+  }
+}
+params
+
+GET logs_server*/_search/template
+{
+    "id" : "daily_hits",
+    "params" : {
+        "start_date" : "2017-08-11",
+        "end_date" : "2017-08-12",
+        "url": "/blog/brewing-in-beats-postgresql-module-in-filebeat"
+    }
+}
+
+
+PUT blogs_fixed1/_doc/2
+{
+  "title": "nodes nodes nodes"
+}
+
+
+
+POST _scripts/template2
+{
+    "script": {
+        "lang": "mustache",
+        "source": {
+            "query": {
+                "match": {
+                    "title": "{{query_string}}"
+                }
+            }
+        }
+    }
+}
+
+GET _search/template
+{
+    "id": "template2", 
+    "params": {
+        "query_string": "nodes"
+    }
+}
+
+Make a search template for this query named daily_hits that uses the following parameters
+
+url: to represent the value of originalUrl.keyword
+
+start_date: for the day we are searching for blogs
+
+end_date: for the upper end of our date range
+PUT _scripts/daily_hits
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": "{{start_date}}",
+                  "lt": "{{end_date}}"
+                }
+              }
+            },
+            {
+              "match": {
+                "originalUrl.keyword": "{{url}}"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+PUT _scripts/template3
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                   {{#end_date}}
+                  "lt": "{{end_date}}",
+                  {{/end_date}}
+                  "gte": "{{start_date}}" 
+                 
+                }
+              }
+            },
+            {
+              "match": {
+                "originalUrl.keyword": "{{url}}"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+Test your daily_hits search template using the following values:
+
+url: "/blog/brewing-in-beats-postgresql-module-in-filebeat"
+
+start_date: "2017-08-11"
+
+end_date: "2017-08-12"
+
+You should get 24 hits.
+
+GET blog/_search/template
+{
+  "id": "template3",
+  "params": {
+    "start_date": "2017-08-11",
+    "end_date": "2017-08-12",
+    "url": "/blog/brewing-in-beats-postgresql-module-in-filebeat"
+  }
+}
+
+
+PUT my_blogs/_doc/1
+{
+  "title": "Elasticsearch 5.0.0-beta1 released",
+  "category": "Releases",
+  "date": "September 22, 2016",
+  "author": {
+    "first_name": "Clinton",
+    "last_name": "Gormley",
+    "company": "Elastic"
+  }
+}
+
+POST my_blogs/_update/1
+{
+  "doc": {
+    "date": "September 26, 2016"
+  }
+}
+
+POST my_blogs/_update/1
+{
+  "doc": {
+    "date": "September 26, 2016"
+  }
+}
+
+
+
+GET _mget
+{
+  "docs": [
+    {
+      "_index": "comments",
+      "_id": 3
+    },
+    {
+      "_index": "blogs",
+      "_id": "F1oSq2EBOOytT5ZTHpaE"
+    }
+  ]
+}
+
+
+OPTIONAL: Perform a bulk operation that executes the following operations on the my_blogs index from the previous step:
+
+Update document 2: set category to "Engineering" and set author.company to "Elastic"
+
+Index a new document with _id of 3 that contains the following fields and values:
+
+POST my_blogs/_bulk
+{"update":{"_id":"2"}}
+{"doc":{"category":"Engineering","author.company":"Elastic"}}
+{"index":{"_id":"3"}}
+{"title":"Using Elastic Graph","category":"Engineering","date":"May 25, 2016","author":{"first_name":"Mark","last_name":"Harwood","company":"Elastic"}}
+
+POST _bulk
+{ "index" : { "_index" : "first_index", "_id" : "1" } }
+{ "field1" : "value1" }
+{ "delete" : { "_index" : "second_index", "_id" : "2" } }
+{ "create" : { "_index" : "first_index", "_id" : "3" } }
+{ "field1" : "value3" }
+{ "update" : {"_id" : "1", "_index" : "second_index"} }
+{ "doc" : {"field2" : "value2"} }
+
+
+OPTIONAL: Use _mget to retrieve the documents with the ids 2 and 3 from your my_blogs index and verify your two bulk operations were both successful.
+
+
+
+GET /_mget
+{
+    "docs" : [
+        {
+            "_index" : "my_blogs",
+            "_id" : "2"
+        },
+        {
+            "_index" : "my_blogs",
+            "_id" : "3"
+        }
+    ]
+}
+
+
+GET my_blogs/_mget
+{
+  "docs": [
+    {"_id":2},
+    {"_id":3}
+  ]
+}
+
+GET /
+
+GET blogs/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": {
+        "query": "ingest nodes",
+        "operator": "and"
+      }
+    }
+  }
+}
+GET _search
+{
+  "track_total_hits": true
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": {
+        "query": "ingest node logstash",
+        "minimum_should_match": 2
+      }
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "_source": {
+    "includes": ["title", "author"]
+  },
+  "query": {
+    "match_all": {}
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "title": "elastic"
+    }
+  }
+}
+
+
+GET blogs/_search
+{
+    "query": {
+        "match" : {
+            "title" : {
+                "query" : "elastic search",
+                "operator" : "and"
+            }
+        }
+    }
+}
+Run a query that answers the question: "Which blogs have performance or optimizations or improvements in the content field?"
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": "performance optimizations improvements"
+    }
+  }
+}
+
+
+
+GET blogs/_search
+{
+    "query": {
+        "match" : {
+            "contents" : {
+                "query" : "performance optimizations improvements",
+                "minimum_should_match" : "2"
+            }
+        }
+    }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": {
+        "query": "monitering datu",
+        "fuzziness": 1
+      }
+    }
+  }
+}
+
+
+
+blogs that have the word "search" in their content field.
+
+GET blogs/_search
+{ 
+  "query": {
+    "match": {
+      "content": "search"
+    }
+  }
+}
+
+
+blogs that have "search" or "analytics" in their content field.
+
+GET blogs/_search
+{ 
+  "query": {
+    "match": {
+      "content": "search analytics"
+    }
+  }
+}
+
+blogs that have "search" and "analytics" in their content field.
+
+
+GET blogs/_search
+{ 
+  "query": {
+    "match": {
+      "content": {
+        "query": "search analytics",
+        "operator": "and"
+      }
+    }
+  }
+}
+
+
+Run a match_phrase search for "search analytics" in the content field that returns the top 3 hits. You should get 6 hits total.
+
+GET blogs/_search
+{ 
+  "size": 3, 
+  "query": {
+    "match_phrase": {
+      "content": "search analytics"
+    }
+  }
+}
+
+The phrase "search and analytics" is fairly common in the blog content. Update the previous match_phrase query so that it allows for 1 term (any word - not just "and") to appear between "search" and "analytics". How many hits do you see now?
+
+GET blogs/_search
+{ 
+  "size": 3, 
+  "query": {
+    "match_phrase": {
+      "content": {
+        "query": "search analytics",
+        "slop": 1
+      }
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match_phrase": {
+      "content": {
+        "query": "open data",
+        "slop": 1
+      }
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "shay banon",
+      "fields": [
+        "title",
+        "content",
+        "author"
+      ],
+      "type": "best_fields"
+    }
+  }
+}
+
+Run a query on the blogs index for "open source" in the content field. Then run a second query for "open source" on the title field. Compare the total hits and top hits returned from both queries. Do the top hits look relevant? Which query had more hits?
+
+
+GET blogs/_search
+{ 
+  "query": {
+    "match": {
+      "content": "open source"
+    }
+  }
+}
+
+GET blogs/_search
+{ 
+  "query": {
+    "match": {
+      "title": "open source"
+    }
+  }
+}
+
+Combine the hits of the last two searches by writing a multi_match query that searches both the content and title fields for "open source". Does the multi_match deliver more or fewer hits? How did this affect the relevance?
+
+EXAM PREP: Modify your multi_match query by giving the title field a boost of 2. How does the score of the top hit compare to the previous query without the boost?
+
+
+GET blogs/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "open source",
+      "fields": ["content", "title^2"]
+    }
+  }
+}
+
+EXAM PREP: Boost affects the score without impacting recall or precision. Remove the boost and modify your multi_match query to perform a phrase query, which increases precision (perhaps at the expense of recall). Did the increase in precision return more or fewer hits?
+
+GET blogs/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "elasticsearch training",
+      "fields": [
+        "title^2",
+        "content",
+        "author"
+      ],
+      "type": "phrase"
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "open source",
+      "fields": ["content", "title^2"],
+      "type": "phrase"
+    }
+  }
+}
+
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": {
+        "query": "shark",
+        "fuzziness": 1
+      }
+    }
+  }
+}
+
+EXAM PREP: Try increasing the recall (perhaps at the expense of precision) by adding the fuzziness parameter, permitting a maximum of 2 edits per word. Did the increased recall return more of fewer hits? How relevant are they?
+
+
+GET blogs/_search
+{
+  "_source": "title",
+  "query": {
+    "match": {
+      "title": {
+        "query": "oven sauce",
+        "fuzziness": auto
+      }
+      
+    }
+  }
+}
+
+
+GET my_index/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {}
+      ],
+      "must_not": [
+        {}
+      ],
+      "should": [
+        {}
+      ],
+      "filter": [
+        {}
+      ]
+    }
+  }
+}
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "content": "logstash"
+          }
+        },
+        {
+          "match": {
+            "category": "engineering"
+          }
+        }
+      ]
+    }
+  }
+}
+
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": {
+        "match_phrase": {
+          "content": "elastic stack"
+        }
+      },
+      "should": {
+        "match_phrase": {
+          "author": "shay banon"
+        }
+      }
+    }
+  }
+}
+
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": {
+        "match_phrase": {
+          "content": "elastic stack"
+        }
+      },
+      "filter": {
+        "match": {
+          "category": "engineering"
+        }
+      }
+    }
+  }
+}
+
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "title": "elastic"
+          }
+        }
+      ],
+      "should": [
+        {"match": {"title": "stack"}},
+{"match_phrase": {"author": "shay banon"}},
+{"range":{"publish_date":{"lt":"2017-01-01"}}}
+      ],
+      "minimum_should_match": 2
+    }
+  }
+}
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": {
+        "match": {
+          "content": "open data"
+        }
+      },
+      "should": {
+        "match_phrase": {
+          "content": "open data"
+        }
+      }
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match": {
+            "title": "performance"
+          }
+        }
+      ]
+    }
+  }
+}
+
+Which blogs have a content field that includes 
+at least 2 of the terms performance or optimizations or improvements?" Write a query that answers the same question, but using bool instead of match. You should get the following hits:
+
+
+POST _search
+{
+  "query": {
+    "bool" : {
+      "should" : [
+        {
+          "match": {
+           "content": "performance"
+          }
+        },
+        {
+          "match": {
+           "content": "optimizations"
+          }
+        },
+        {
+          "match": {
+           "content": "improvements"
+          }
+        }
+      ],
+      "minimum_should_match" : 2
+    }
+  }
+}
+
+EXAM PREP: It looks like releases usually come with performance optimizations and improvements. Assuming that you are not interested in upgrading your deployment, change the previous query (the should version) so that it 
+must_not contain "released" or "releases" or "release" in the title field. Your top hits look better now, and notice the number of total hits dropping down to 47.
+
+POST _search
+{
+  "query": {
+    "bool" : {
+      "must_not": [
+        {
+          "match" : {
+            "content" : {
+                "query" : "release"
+                "fuzziness": "1"
+            }
+          }
+        }
+      ], 
+      "should" : [
+        {
+          "match": {
+           "content": "performance"
+          }
+        },
+        {
+          "match": {
+           "content": "optimizations"
+          }
+        },
+        {
+          "match": {
+           "content": "improvements"
+          }
+        }
+      ],
+      "minimum_should_match" : 2
+    }
+  }
+}
+
+
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must_not": [
+        {
+          "match": {
+            "title": "release releases released"
+          }
+        }
+      ]
+    }
+  }
+}
+
+
+EXAM PREP: In the previous query, let’s say you are more interested in blogs about Elasticsearch. How could you rank the results so that the documents that mention "elasticsearch" in the title score higher? (TIP: you must have two separate should clauses. One clause with a minimum_should_match will work like a must. The other clause will influence the score.)
+
+ mention "elasticsearch" in the title
+minimum_should_match
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match": {
+            "content": "performance"
+          }
+        },
+        {
+          "match": {
+            "content": "optimizations"
+          }
+        },
+        {
+          "match": {
+            "content": "improvements"
+          }
+        }
+      ],
+      "minimum_should_match": 2,
+      "must_not": [
+        {
+          "match": {
+            "title": "release releases released"
+          }
+        }
+      ]
+    }
+  }
+}
+
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "bool": {
+            "should": [
+              {
+                "match": {
+                  "content": "performance"
+                }
+              },
+              {
+                "match": {
+                  "content": "optimizations"
+                }
+              },
+              {
+                "match": {
+                  "content": "improvements"
+                }
+              }
+            ],
+            "minimum_should_match": 2
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "match": {
+            "title": "release releases released"
+          }
+        }
+      ],
+      "should": [
+        {
+          "match": {
+            "title": "elasticsearch"
+          }
+        }
+      ]
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match_phrase": {
+      "title": "kibana"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "title": {}
+    }
+  }
+}
+
+
+GET blogs/_search
+{
+  "from": 10,
+  "size": 10,
+  "query": {
+    "match": {
+      "content": "elasticsearch"
+    }
+  }
+}
+“I want the second
+page of hits.”
+Colleen
+
+EXAM PREP: Suppose a user clicks on page 4 of the search results from your previous query. Write a query that returns the 3 hits of page 4.
+
+
+GET blogs/_search
+{
+  "from": 12,
+  "size": 3,
+  "query": {
+    "match": {
+      "content": "elasticsearch"
+    }
+  }
+}
+
+
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": "security"
+    }
+  },
+  "sort": [
+    {
+      "publish_date": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": {
+        "match": {
+          "content": "security"
+        }
+      },
+      "must_not": {
+        "match": {
+          "author.keyword": ""
+        }
+      }
+    }
+  },
+  "sort": [
+    {
+      "author.keyword": {
+        "order": "asc"
+      }
+    },
+    {
+      "publish_date": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": ["title", "content"]
+          }
+        },
+        {
+         "match": {
+           "category.keyword": "Culture News",
+           "operator": "and"
+         }
+        }
+      ]
+    }
+  }
+}
+
+EXAM PREP: Next, imagine the user also selected Culture on the left side bar. Update the query above to add the new user selection. The result should be 7 documents. (TIP: you need to implement an OR logic combined with an AND logic. Which boolean query allows you to run ORs?)
+
+
+EXAM PREP: Next, imagine the user adds a date to the search, so only blogs published in 2017 are returned. Update the query above to only return blogs published in 2017. The result should be 2 documents.
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": [
+              "title",
+              "content"
+            ]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "terms": {
+            "category.keyword": [
+              "News",
+              "Culture"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+Write a match_phrase query that searches for "elastic stack" in the content field. Sort the results so that they are returned from newest to oldest (based on the publish_date field).
+
+GET blogs/_search
+{
+  "query": {
+    "match_phrase": {
+      "content": "elastic stack"
+    }
+  },
+  "sort": [
+    {
+      "publish_date": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+
+EXAM PREP: Modify your previous query so that the results are sorted first by author name ascending, and then from newest to oldest.
+
+
+
+
+GET blogs/_search
+{
+  "query": {
+    "match_phrase": {
+      "content": "elastic stack"
+    }
+  },
+  "sort": [
+    {"author.keyword": "asc"},
+    {
+      "publish_date": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "content": "module"
+          }
+        }
+      ],
+      "filter": {
+        "range": {
+          "publish_date": {
+            "gte": "2017-12-01",
+            "lt": "2018-01-01"
+          }
+        }
+      }
+    }
+  }
+}
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "content": "module" } }
+      ],
+      "filter": [
+        { "match": { "category.keyword": "Brewing in Beats" } }
+      ]
+    }
+  }
+}
+
+
+
+
+GET logs_server*/_search
+{
+  "aggs": {
+    "total_sum_bytes": {
+      "sum": {
+        "field": "response_size"
+      }
+    }
+  }
+}
+
+
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "query": {
+    "match": {
+      "language.code": "fr-fr"
+    }
+  },
+  "aggs": {
+    "french_sum_bytes": {
+      "sum": {
+        "field": "response_size"
+      }
+    }
+  }
+}
+
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "runtime_quartiles": {
+      "percentiles": {
+        "field": "runtime_ms",
+        "percents": [
+          25,
+          50,
+          75
+        ]
+      }
+    }
+  }
+}
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "number_of_countries": {
+      "cardinality": {
+        "field": "geoip.country_name.keyword"
+      }
+    }
+  }
+}
+
+Objective: In this lab, you will become familiar with writing metrics aggregations to answer some questions about the logs_server*
+
+
+What is the runtime of the fastest request? (*TIP:* set size to 0.)
+
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "faster_request": {
+      "min": {
+        "field": "runtime"
+      }
+    }
+  }
+}
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "request_time_stats": {
+      "stats": {
+        "field": "runtime_ms"
+      }
+    }
+  }
+}
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "runtime_perc": {
+      "percentiles": {
+        "field": "runtime_ms",
+        "percents" : [50, 95]
+      }
+    }
+  }
+}
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "load_time_ranks": {
+      "percentile_ranks": {
+        "field": "runtime_ms",
+        "values" : [500]
+      }
+    }
+  }
+}
+
+How many distinct URL requests were logged in the logs_server* indices? URL requests are indexed in the originalUrl field. You should get around 37,000 as the result.
+
+GET logs_server*/_search
+{
+  "aggs": {
+    "unique": {
+      "cardinality": {
+        "field": "originalUrl.keyword"
+      }
+    }
+  }
+}
+EXAM PREP: Add a query that limits the scope of your aggregation in the previous step to only documents that contain the term "elastic" in the originalUrl field. You should get around 4,500 as the result.
+
+GET logs_server*/_search
+{
+  "query": {
+    "match": {
+      "originalUrl": "elastic"
+    }
+  }, 
+  "aggs": {
+    "unique": {
+      "cardinality": {
+        "field": "originalUrl.keyword"
+      }
+    }
+  }
+}
+
+
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "country_name_terms": {
+      "terms": {
+        "field": "category.keyword",
+        "size": 5
+      }
+    }
+  }
+}
+
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "logs_by_day": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "calendar_interval": "day",
+        "order": {
+          "_key": "desc"
+        }
+      }
+    }
+  }
+}
+
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "runtime_histogram": {
+      "histogram": {
+        "field": "runtime_ms",
+        "interval": 100
+      }
+    }
+  }
+}
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "logs_by_day": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "calendar_interval": "day"
+      }
+    }
+  }
+}
+
+
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "num_status_codes": {
+      "terms": {
+        "field": "status_code",
+        "size": 6,
+        "order": {
+          "_key": "asc"
+        }
+      }
+    }
+  }
+}
+
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "num_hits_per_cat": {
+      "terms": {
+        "field": "category.keyword"
+      }
+    }
+  }
+}
+
+Write an aggregation that returns the response_size distribution for the logs indices with an interval of 10000.
+
+exclude the buckets that have less than 1000 documents.
+
+GET logs_server*/_search?size=0
+{
+
+  "aggs": {
+    "num_hits_per_cat": {
+     "histogram": {
+       "field": "response_size",
+       "interval": 10000,
+       "min_doc_count" : 1000
+     }
+    }
+  }
+}
+
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "logs_per_week": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "interval": "minute"
+      }
+    }
+  }
+}
+
+
+How many requests are there for each of the 6 status_code values? (*TIP:* set size to 0.)
+
+How many blog requests are there for each week? (*TIP:* set size to 0.)
+
+
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "request_per_week": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "calendar_interval": "week"
+      }
+    }
+  }
+}
+
+EXAM PREP: For each week of blog requests, how many requests were received from each of the 6 values of status_code?
+
+
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "request_per_week": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "calendar_interval": "week"
+      },
+      "aggs": {
+        "reqs_per_status": {
+          "terms": {
+            "field": "status_code",
+            "size": 10
+          }
+        }
+      }
+    }
+  }
+}
+
+
+EXAM PREP: What is the median runtime for each status_code? (TIP: This is not per week.)
+
+GET logs_server*/_search?size=0
+
+
+
+
+
+
+{
+  "aggs": {
+    "median_runtime": {
+      "percentiles": {
+        "field": "",
+        "percents": [
+          50
+        ]
+      }, 
+      "terms": {
+        "field": "status_code",
+        "size": 10
+      }
+    }
+  }
+}
+
+
+
+EXAM PREP: What are the top 3 URLs accessed from each of the top 20 cities? Analyze the results closely and notice there is a common set of URLs for most cities.
+
+
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "top_20_countries": {
+      "terms": {
+        "field": "country.keyword",
+        "size": 20
+      },
+      "aggs": {
+        "top_3_urls": {
+          "significant_terms": {
+            "field": "originalURL.keyword",
+            "size": 3
+          }
+        }
+      }
+    }
+  }
+}
+
+Write a query that searches for "elasticsearch siem" in the content field and use this scope of documents to 
+
+list only the title field of the top three blogs of each one of the top 5 categories.
+
+GET logs_server*/_search?size=0
+{
+  "query": {
+    "match": {
+      "content": "elasticsearch siem" 
+    }
+  },
+  "aggs": {
+    "top_categories": {
+      "terms": {
+        "field": "category.keyword",
+        "size": 5
+      },
+      "aggs": {
+        "top_blogs": {
+          "terms": {
+            "field": "title.keyword",
+            "size": 3,
+            "include": "title"
+          }
+        }
+      }
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "size": 0,
+  "query": {
+    "match": {
+      "content": "logstash filters"
+    }
+  },
+  "aggs": {
+    "blogs_by_author": {
+      "terms": {
+        "field": "author.keyword"
+      },
+      "aggs": {
+        "logstash_top_hits": {
+          "top_hits": {
+            "size": 5
+          }
+        }
+      }
+    }
+  }
+}
+
+
+
+GET blogs/_search
+{
+  "size": 0,
+  "query": {
+    "match": {
+      "content": "elasticsearch siem"
+    }
+  },
+  "aggs": {
+    "top5_categories": {
+      "terms": {
+        "field": "category.keyword",
+        "size": 5
+      },
+      "aggs": {
+        "top3_blogs": {
+          "top_hits": {
+            "size": 10,
+            ""
+          }
+        }
+      }
+    }
+  }
+}
+
+
+
+
+GET blogs/_search
+{
+  "size": 0,
+  "aggs": {
+    "author_buckets": {
+      "terms": {
+        "field": "author.keyword",
+        "size": 10
+      },
+      "aggs": {
+        "content_significant_text": {
+          "significant_text": {
+            "field": "content",
+            "size": 10
+          }
+        }
+      }
+    }
+  }
+}
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "requests_per_day": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "calendar_interval": "day",
+        "order": {
+          "daily_number_of_bytes": "desc"
+        }
+      },
+      "aggs": {
+        "daily_number_of_bytes": {
+          "sum": {
+            "field": "response_size"
+          }
+        },
+        "median_runtime": {
+          "percentiles": {
+            "field": "runtime_ms",
+            "percents": [
+              50
+            ]
+          }
+}  }  }  }}
+      
+      
+      
+PUT my_logs
+{
+  "mappings": {
+    "properties": {
+      "status_code": {
+        "type": "short"
+      }
+    }
+  }
+}
+
+
+PUT my_index2
+{
+  "mappings": {
+    "properties": {
+      "region_name": {
+        "type": "keyword",
+        "copy_to": "locations_combined"
+      },
+      "country_name": {
+        "type": "keyword",
+        "copy_to": "locations_combined"
+      },
+      "city_name": {
+        "type": "keyword",
+        "copy_to": "locations_combined"
+      },
+      "locations_combined": {
+        "type": "text"
+      }
+    }
+  }
+}
+
+
+PUT test2
+{
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "my_string_fields": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "keyword"
+          }
+        }
+      }
+    ]
+  }
+}
+
+
+{
+"my_index" : {
+"mappings" : {
+"properties" : {
+...
+"country_name" : {
+"type" : "text",
+"fields" : {
+"keyword" : {
+"type" : "keyword",
+"ignore_above" : 256
+}
+}
+}
+...
+}
+}
+}
+}
+
+
+
+
+EXAM PREP: Create a new index my_logs with the ip field mapped explicitly as type ip.
+
+PUT my_logs
+{
+  "mappings": {
+    "properties": {
+      "ip": {
+        "type": "ip"
+      }
+    }
+  }
+}
+
+Add a new field named title to the mapping of the tmp_index index. Map the field as type text, with the english analyzer.
+
+
+
+PUT tmp_index/_mappings
+{
+ 
+    "properties": {
+      "tmp_index": {
+        "type": "text",
+        "analyzer": "english"
+      }
+    }
+  
+}
+
+
+
+
+
+PUT logs_fixed/_mapping
+{
+  "dynamic_templates": [
+    {
+      "unmapped_strings": {
+        "match_mapping_type": "string",
+        "mapping": {
+          "type": "keyword"
+          
+        }
+      }
+    }
+  ]
+}
+
+
+EXAM PREP: Let’s review some of the mapping parameters, like copy_to and defining default null values. Create a new index named surveys that is going to hold some survey results. Create the index with only four fields in its mapping:
+
+A field named all_feedback of type text
+
+A field named instructor_feedback of type text that gets copied to the all_feedback field
+
+A field named labs_feedback of type text that is also copied to the all_feedback field
+
+A field named course_rating of type integer in which null values default to 1, and also has coercion disabled
+
+
+
+
+PUT surveys
+{
+  "mappings": {
+    "properties": {
+      "all_feedback": {
+        "type": "text"
+      },
+       "instructor_feedback": {
+        "type": "text",
+        "copy_to": "all_feedback"
+      },
+       "labs_feedback": {
+        "type": "text",
+        "copy_to": "all_feedback"
+      },
+       "course_rating": {
+        "type": "integer",
+        "null_value": "1",
+        "coerce": false
+      }
+    }
+  }
+}
+
+ALL EXAM PREP Module 5 Questions
+
+EXAM PREP: Then, configure the node settings in the appropriate config files (either elasticsearch.yml or jvm.options) to have the following:
+
+it joins my_cluster
+
+the name of the node is node3
+
+binds and publishes both the transport and HTTP protocols to the site-local address
+
+set the min and max heap size to 512m
+
+
+cluster.name: my_cluster
+node.name: node3
+network.host = _site_
+
+jvm:
+-Xms512m 
+-Xmx512m
+
+EXAM PREP: Next, update the node settings to have the following:
+
+node1 is the only initial master node in the cluster
+
+it discovers the cluster via server1, server2, or server3
+
+
+discovery.seed_hosts: ["server1", "server2", or "server3"]
+cluster.initial_master_nodes: ["node1"]
+
+
+
+GET _cluster/health
+GET /_cluster/allocation/explain
+GET _cat/indices?v
+
+GET _cat/nodes?v
+
+GET _cluster/health?level=shards
+GET _cluster/health?level=indices
+
+
+
+EXAM PREP: Keep digging it. Figure out which index is red and which shard is unassigned. Feel free to use the _cluster or _cat APIs.
+
+GET _cluster/health
+GET _cluster/health/nested_blogs?level=shards
+GET _cat/indices/nested_blogs?v
+
+EXAM PREP: Now that we know which shard has the issue, use the Cluster Allocation Explain API to understand it. Can you discover what the problem is?
+
+GET _cluster/allocation/explain
+
+
+EXAM PREP: Now that we have defined the documents, let’s index them. Notice that the id field defined inside the documents is just a normal field like any other. The actual document _id is defined in the request URL when you index the documents.
+
+Index both JSON documents into the my_blogs index using their respective ids.
+
+START START
+
+PUT my_blogs
+PUT my_blogs/_doc/1
+{
+  "id": "1",
+  "title": "Better query execution",
+  "category": "Engineering",
+  "date":"July 15, 2015",
+  "author":{
+    "first_name": "Adrien",
+    "last_name": "Grand",
+    "company": "Elastic"
+  }
+}
+
+PUT my_blogs/_doc/2
+{
+  "id": "2",
+  "title": "The Story of Sense",
+  "date":"May 28, 2015",
+  "author":{
+    "first_name": "Boaz",
+    "last_name": "Leskes"
+  }
+}
+
+EXAM PREP: The index operation can also be executed without specifying the _id. In such a case, you use a POST instead of a PUT and an _id will be generated automatically. Index the following document without an id and check the _id in the response. (Make sure you use POST.)
+
+
+
+POST my_blogs/_doc
+{
+  "id": "57",
+  "title": "Phrase Queries: a world without Stopwords",
+  "date":"March 7, 2016",
+  "category": "Engineering",
+  "author":{
+    "first_name": "Gabriel",
+    "last_name": "Moskovicz"
+  }
+}
+
+
+GET my_blogs/_doc/HNdaVHIBsL4_UaMSatBl
+GET my_blogs/_doc/1
+DELETE my_blogs/_doc/1
+
+POST my_blogs/_doc
+{
+  "id": "20",
+  "title": "Source",
+  "date":"March 7, 2016",
+  "category": "Engineering",
+  "author":{
+    "first_name": "Gabriel",
+    "last_name": "Moskovicz"
+  }
+}
+
+POST my_blogs/_doc
+{
+  "id": "21",
+  "title": "Source",
+  "date":"March 7, 2016",
+  "content": "open source",
+  "author":{
+    "first_name": "Gabriel",
+    "last_name": "Moskovicz"
+  }
+}
+
+
+EXAM PREP: Modify your multi_match query by giving the title field a boost of 2. How does the score of the top hit compare to the previous query without the boost?
+
+
+GET my_blogs/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "open source",
+      "fields": [
+        "title^2",
+        "content"
+      ]
+    }
+  }
+}
+
+
+EXAM PREP: Boost affects the score without impacting recall or precision. Remove the boost and modify your multi_match query --> to perform a phrase query, which increases precision (perhaps at the expense of recall). Did the increase in precision return more or fewer hits?
+
+GET my_blogs/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "open source",
+      "fields": [
+        "title",
+        "content"
+      ],
+      "type": "phrase"
+    }
+  }
+}
+EXAM PREP: Try increasing the recall (perhaps at the expense of precision) by adding the fuzziness parameter, permitting a maximum of 2 edits per word. Did the increased recall return more of fewer hits? How relevant are they?
+
+
+GET my_blogs/_search
+{
+  "_source": "title",
+  "query": {
+    "match": {
+      "title": {
+        "query": "oven sauce",
+        "fuzziness": 2
+      }
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "_source": "title",
+  
+  "query": {
+
+    "match": {
+      "title": "oven sauce"
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "_source": "title",
+  "query": {
+    "match": {
+      "query": {
+        "text": "oven sauce",
+        "field": "title",
+        "fuzziness": 2
+      }
+    }
+  }
+}
+Lab 2.3
+EXAM PREP: It looks like releases usually come with performance optimizations and improvements. Assuming that you are not interested in upgrading your deployment, change the previous query (the should version) so that it 
+
+must_not contain "released" or "releases" or "release" in the title field. 
+
+Your top hits look better now, and notice the number of total hits dropping down to 47.
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must_not": [
+        {
+          "match": {
+            "title": "released releasesrelease"
+          }
+        }
+      ], 
+      "should": [
+        {
+          "match": {
+            "content": "performance"
+          }
+        },
+        {
+          "match": {
+            "content": "optimizations"
+          }
+        },
+        {
+          "match": {
+            "content": "improvements"
+          }
+        }
+      ],
+      "minimum_should_match": 2
+    }
+  }
+}
+
+EXAM PREP: In the previous query, let’s say you are more interested in blogs about Elasticsearch. How could you rank the results so that the documents that mention 
+
+"elasticsearch" in the title score higher? (TIP: you must have two separate should clauses. One clause with a minimum_should_match will work like a must. The other clause will influence the score.)
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "bool": {
+            "should": [
+            {
+              "match": {
+                "content": "performance"
+              }
+            },
+            {
+              "match": {
+                "content": "optimizations"
+              }
+            },
+            {
+              "match": {
+                "content": "improvements"
+              }
+            }
+          ],
+          "minimum_should_match": 2
+          }
+          
+        }
+      ],
+      "should": [
+        {
+          "match": {
+            "title": "elasticsearch"
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "match": {
+            "title": "released releasesrelease"
+          }
+        }
+      ]
+    }
+  }
+}
+
+Lab 2.4
+EXAM PREP: Next, imagine the user also selected Culture on the left side bar. Update the query above to add the new user selection. The result should be 7 documents. (TIP: you need to implement an OR logic combined with an AND logic. Which boolean query allows you to run ORs?)
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      
+      "minimum_should_match": 1,
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": [
+              "title",
+              "content"
+            ]
+          }
+        }
+      ],
+      "filter": {
+        "bool": {
+          "should": [
+            {
+              "match": {
+                "category.keyword": "News"
+              }
+            },
+            {
+              "match": {
+                "category.keyword": "Culture"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+EXAM PREP: Next, imagine the user adds a date to the search, so only blogs published in 2017 are returned. Update the query above to only return blogs published in 2017. The result should be 2 documents.
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": [
+              "title",
+              "content"
+            ]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "terms": {
+            "category.keyword": [
+              "News",
+              "Culture"
+            ]
+          }
+        },
+        "range": {
+          "date_published": {
+            "gte": "2017-01-01",
+            "lt": "2018-01-01"
+          }
+        },
+      ]
+    }
+  }
+}
+
+#13
+EXAM PREP: Modify your previous query so that the results are sorted first by author name ascending, and then from newest to oldest.
+
+"sort": [
+    { "account_number": "asc" }
+  ]
+GET blogs/_search
+{
+  "query": {
+    "match_phrase": {
+      "content": {
+        "query" : "elastic stack"
+      }
+    }
+  },
+  "sort": [
+    {
+      "author.keyword": {
+        "order": "asc"
+      }
+    },
+    {
+      "publish_date": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+
+EXAM PREP: Suppose a user clicks on page 4 of the search results from your previous query. Write a query that returns the 3 hits of page 4.
+
+GET blogs/_search
+{
+  "size": 3,
+  "from": 9, 
+  "query": {
+    "match_phrase": {
+      "content": {
+        "query" : "elastic stack"
+      }
+    }
+  },
+    "highlight" : {
+        "pre_tags" : ["<mark>"],
+        "post_tags" : ["</mark>"],
+        "fields" : {
+            "content" : {}
+        }
+    },
+  "sort": [
+    {
+      "author.keyword": {
+        "order": "asc"
+      }
+    },
+    {
+      "publish_date": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+
+Lab 3.1
+EXAM PREP: Add a query that limits the scope of your aggregation in the previous step to only documents that 
+contain the term "elastic" in the originalUrl field. You should get around 4,500 as the result.
+GET logs_server*/_search
+{
+  "size": 0,
+  "query": {
+    "match": {
+      "originalUrl": "elastic"
+    }
+  }, 
+  "aggs": {
+    "my_url_value_count": {
+      "cardinality": {
+        "field": "originalUrl.keyword"
+      }
+    }
+  }
+}
+
+EXAM PREP: A terms aggregation is sorted by doc_count by default. Modify your previous search so that its terms are sorted alphabetically.
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_code_buckets": {
+      "terms": {
+        "field": "status_code",
+        "order": {
+          "_term": "asc"
+        }
+      }
+    
+    }
+  }
+}
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "runtime_histogram": {
+      "histogram": {
+        "field": "response_size",
+        "interval": 10000,
+        "min_doc_count": 1000
+      }
+    }
+  }
+}
+
+EXAM PREP: For each week of blog requests, how many requests were received from each of the 6 values of status_code?
+
+GET log_server/_search
+{
+  "aggs": {
+    "weekly_logs": {
+      "date_histogram": {
+        "field": "date",
+        "interval": "week"
+      },
+      "aggs": {
+        "top_status_codes": {
+          "terms": {
+            "field": "status_code",
+            "size": 6
+          }
+        }
+      }
+    }
+  }
+}
+
+EXAM PREP: What is the median runtime for each status_code? (TIP: This is not per week.)
+
+GET log_server/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_code_bucket": {
+      "terms": {
+        "field": "status_code"
+      }, 
+      "aggs": {
+        "median_runtime": {
+          "percentiles": {
+            "field": "runtime_ms",
+            "percents": [
+              50
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+
+
+
+EXAM PREP: What are the top 3 URLs accessed from each of the top 20 cities? Analyze the results closely and notice there is a common set of URLs for most cities.
+
+GET loglevel_test1/_search?size=0
+{
+  "aggs": {
+    "top_20_cities": {
+      "terms": {
+        "field": "city",
+        "size": 20
+      },
+      "aggs": {
+        "top_urls": {
+          "terms": {
+            "field": "originalUrl.keyword",
+            "size": 3
+          }
+        }
+      }
+    }
+  }
+}
+
+EXAM PREP: Write a query that searches for "elasticsearch siem" in the content field and use this scope of documents to list only the 
+title field of the top three blogs of each one of the top 5 categories.
+
+
+GET my_blogs/_search
+{
+  "size": 0,
+  "query": {
+    "match": {
+      "content": "elasticsearch siem"
+    }
+  },
+  "aggs": {
+    "top5_categories": {
+      "terms": {
+        "field": "category.keyword",
+        "size": 5
+      },
+      "aggs": {
+        "top3_blogs": {
+          "top_hits": {
+            "size": 3,
+            "_source": ["title"]
+          }
+        }
+      }
+    }
+  }
+}
+
+
+GET my_blogs/_search
+{
+  "query": {
+    "match": {
+      "content": "elasticsearch siem" 
+    }
+  },
+  "aggs": {
+    "top_categories": {
+      "terms": {
+        "field": "category.keyword",
+        "size": 5
+      },
+      "aggs": {
+        "top_titles": {
+          "top_hits": {
+            "size": 3,
+            "_source": {"includes": "title"}
+          }
+        }
+      }
+    }
+  }
+}
+#23
+EXAM PREP: Create a new index my_logs with the ip field mapped explicitly as type ip.
+
+
+PUT my_logs
+{
+  "mapping": {
+    "properties": {
+      "ip": {
+        "type": "ip"
+      }
+    }
+  }
+}
+
+EXAM PREP: Add a new field named title to the mapping of the tmp_index index. Map the field as type text, with the english analyzer.
+
+PUT tmp_index/_mapping
+{
+   "properties": {
+      "title": {
+        "type": "text",
+        "analyzer": "english"
+      }
+    }
+}
+
+EXAM PREP: Update the mappings for the logs_fixed index (that you created in the last lab) with a dynamic template:
+
+that matches all unmapped fields with a value of JSON type string
+
+and maps those as type keyword
+
+PUT logs_fixed
+{
+  "mappings": {
+    "dynamic_templates": [
+      
+      {
+        "strings": {
+          "match_mapping_type": "string",
+          "mapping": {
+           "type":  "keyword"
+          }
+        }
+      }
+    ]
+  }
+}
+EXAM PREP: With the mappings for the logs_fixed index in place, let’s populate the index. Copy over all documents from the logs_server1 index to the logs_fixed index by using the _reindex API:
+
+
+POST _reindex
+{
+  "source": {
+    "index": "logs_server1"
+  },
+  "dest": {
+    "index": "logs_fixed"
+  }
+}
+
+EXAM PREP: Let’s review some of the mapping parameters, like copy_to and defining default null values. 
+
+#27
+Create a new index named surveys that is going to hold some survey results. Create the index with only four fields in its mapping:
+
+A field named all_feedback of type text
+
+A field named instructor_feedback of type text that gets copied to the all_feedback field
+
+A field named labs_feedback of type text that is also copied to the all_feedback field
+
+A field named course_rating of type integer in which null values default to 1, and also has coercion disabled
+
+PUT surveys/_mapping
+{
+  "properties": {
+    "all_feedback": {
+      "type": "text"
+    },
+     "instructor_feedback": {
+      "type": "text",
+      "copy_to": "all_feedback"
+    },
+    "labs_feedback": {
+      "type": "text",
+      "copy_to": "all_feedback"
+    },
+    "course_rating": {
+      "type": "integer",
+      "null_values": 1,
+      "coerce": false
+    }
+  }
+}
+
+#28
+EXAM PREP: Then, configure the node settings in the appropriate config files (either elasticsearch.yml or jvm.options) to have the following:
+
+it joins my_cluster
+
+the name of the node is node3
+
+binds and publishes both the transport and HTTP protocols to the site-local address
+
+set the min and max heap size to 512m
+
+cluster.name: my_cluster
+node.name: node3
+network.host: _site_
+
+-Xms512m
+-Xmx512m
+
+
+EXAM PREP: Next, update the node settings to have the following:
+
+node1 is the only initial master node in the cluster
+
+it discovers the cluster via server1, server2, or server3
+
+cluster.initial_master_nodes: node1
+discovery.seed_hosts: 
+
+~~~~~~
+GOT THESE ONES WRONG
+
+Lab 2.2
+Transform this query into one with fuzziness of 2
+GET blogs/_search
+{
+  "_source": "title",
+  "query": {
+    "match": {
+      "title": "oven sauce"
+    }
+  }
+}
+ANSWER SOLUTION
+
+GET my_blogs/_search
+{
+  "_source": "title",
+  "query": {
+    "match": {
+      "title": {
+        "query": "oven sauce",
+        "fuzziness": 2
+      }
+    }
+  }
+}
+
+EXAM PREP: In the previous query, let’s say you are more interested in blogs about Elasticsearch. How could you rank the results so that the documents that mention 
+
+"elasticsearch" in the title score higher? (TIP: you must have two separate should clauses. One clause with a minimum_should_match will work like a must. The other clause will influence the score.)
+
+How to have multiple should in the same bool
+query: bool must bool should
+GET my_blogs/_search
+{
+  "query": {
+    "bool": {
+        "must": [
+          {
+            "bool": {
+              "should": [
+                {}
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+What if you wanted a user selected a 2nd Category on the search page?
+Inside the filter, you can nest a bool should: [match or match]
+
+
+How to sort the terms agg buckets by the term instead of the doc count (_term v _key)
+
+EXAM PREP: A terms aggregation is sorted by doc_count by default. Modify your previous search so that its terms are sorted alphabetically.
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_code_buckets": {
+      "terms": {
+        "field": "status_code",
+        "order": {
+          "_term": "asc"
+        }
+      }
+    
+    }
+  }
+}
+
+EXAM PREP: A terms aggregation is sorted by doc_count by default. Modify your previous search so that its terms are sorted alphabetically.
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_code_buckets": {
+      "terms": {
+        "field": "status_code",
+        "order": {
+          "_key": "asc"
+        }
+      }
+    
+    }
+  }
+}
+For full-text queries, how to nest a should in a filter clause and two should clauses in a bool query (one with a min should match, one without). add fuzziness to a match query
+For aggregations: how to order by term in a terms agg, how to include only the title from the source in a top hits agg, when to use top_hits
+
+
+
+
+
+

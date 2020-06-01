@@ -1,0 +1,60 @@
+
+
+
+Lab 4.3
+
+what if you tried to do the following without keyword? it would fail.
+because keyword fields have doc values enabled
+
+GET tmp_index/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_countries": {
+      "terms": {
+        "field": "country_name.keyword",
+        "size": 10
+      }
+    }
+  }
+}
+
+initialize a new index
+POST tmp_index/_doc/4
+{
+  "region_name": "Hertfordshire",
+  "city_name": "Hatfield"
+}
+
+update the automatically generated mapping
+PUT tmp_index/_mapping
+{
+  "properties": {
+    "region_name": {
+      "type": "keyword",
+      "index": false
+    },
+    "city_name": {
+      "type": "keyword",
+      "doc_values": false
+    }
+  }
+}
+
+On which field would querying fail? region name
+On which field would aggregation fail? city name
+
+Create a new index logs_fixed with a mapping in which the log and agent objects have been completely disabled.
+PUT logs_fixed
+{
+  "mapping": {
+    "properties": {
+      "log": {
+        "enabled": false
+      },
+      "agent": {
+        "enabled": false
+      }
+    }
+  }
+}

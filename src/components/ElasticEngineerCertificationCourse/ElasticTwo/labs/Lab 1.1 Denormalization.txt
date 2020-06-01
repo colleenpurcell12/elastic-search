@@ -1,0 +1,180 @@
+Denormalization
+
+class Blog {
+  String id;
+  String title;
+  String[] products;
+  Author[] authors;
+
+  /* list of methods */
+  ...
+}
+
+class Author {
+  String name;
+  Company company;
+
+  /* list of methods */
+  ...
+}
+
+public class Company {
+  String name;
+  Country country;
+
+  /* list of methods */
+  ...
+}
+
+public class Country {
+  String name;
+  String code;
+
+  /* list of methods */
+  ...
+}
+
+{
+  "id": 1,
+  "title": "sample title",
+  "products": ["logstash", "beats"],
+  "authors":[
+    {
+      "name":"joe",
+      "company": {
+        "name": "Moodys",
+        "country": {
+          "name": "USA",
+          "code": "123"
+        }
+      }
+    }
+  ]
+}
+
+For the following, note that all proper nouns are multi field text and keyword, id and code are only type keyword since it doesnt make sense to parse and analyze them
+PUT denormalized_blogs/_mapping
+{
+  "properties": {
+    "id": {
+      "type": "keyword"
+    },
+    "title": {
+      "type": "text",
+      "analyzer": "english",
+      "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+    },
+    "products": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword"
+        }
+      }
+    },
+    "authors": {
+      "type": "object",
+      "properties": {
+        "name":{
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        },
+        "company": {
+          "type": "object"
+          "properties": {
+            "name": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "country": {
+              "type": "object"
+              "properties": {
+                "name":  {
+                  "type": "text",
+                  "fields": {
+                    "keyword": {
+                      "type": "keyword"
+                    }
+                  }
+                },
+                "code":  {"type": "keyword"}
+              }
+            }
+          }
+        },
+      }
+    }
+  }
+}
+
+POST denormalized_blogs/_bulk
+{"index":{"_id":1}}
+{"id":"1","title":"Time Series with Kibana","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}}]}
+{"index":{"_id":2}}
+{"id":"2","title":"Memory Issues We'll Remember","authors":[{"name":"Chris Overton","company":{"country":{"code":"FR","name":"France"},"name":"Globex"}},{"name":"Alex Brasetvik","company":{"country":{"code":"BR","name":"Brazil"},"name":"Elastic"}}]}
+{"index":{"_id":3}}
+{"id":"3","title":"Making Kibana Accessible","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}},{"name":"Tim Roes","company":{"country":{"code":"JP","name":"Japan"},"name":"Soylent"}}]}
+
+
+Write and execute a query that returns all blogs written by a chris who works at Globex.
+
+GET denormalized_blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {"authors.name": "chris"}
+        },
+        {
+          "match": {"authors.company.name.keyword": "Globex"}
+        }
+      ]
+    }
+  }
+}
+Write and execute an aggregation that returns the top 5 companies that have an author who wrote a blog.
+**not asking for field author, wierd wording
+
+GET denormalized_blogs/_search?size=0
+{
+    "aggs" : {
+        "top_5_companies" : {
+            "terms" : {
+                "field" : "authors.company.name.keyword"
+            }
+        }
+    }
+}
+
+all blogs written by any alex who works at Elastic.Why did we get results of alex from ACME who coauthored with Chris from Elastic?
+GET denormalized_blogs/_search
+{
+  "_source": {
+    "includes": ["authors.name", "authors.company.name"]
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {"authors.name": "alex"}
+        },
+        {
+          "match": {"authors.company.name.keyword": "Elastic"}
+        }
+      ]
+    }
+  }
+}

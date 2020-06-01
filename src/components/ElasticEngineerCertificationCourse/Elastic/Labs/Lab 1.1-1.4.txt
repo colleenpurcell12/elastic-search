@@ -1,0 +1,96 @@
+Lab 1.1-1.4
+info about current node
+GET /
+
+for all documents in every index:
+GET _search
+{
+    "query": {
+        "match_all": {}
+    }
+}
+
+GET my_blogs2
+
+INDEX documents into a index
+PUT my_blogs2/_doc/1
+{
+  "id": "1",
+  "title": "Better query execution",
+  "category": "Engineering",
+  "date":"July 15, 2015",
+  "author":{
+    "first_name": "Adrien",
+    "last_name": "Grand",
+    "company": "Elastic"
+  }
+}
+
+PUT my_blogs2/_doc/2
+{
+  "id": "2",
+  "title": "The Story of Sense",
+  "date":"May 28, 2015",
+  "author":{
+    "first_name": "Boaz",
+    "last_name": "Leskes"
+  }
+}
+
+POST  my_blogs2/_doc
+{
+  "id": "57",
+  "title": "Phrase Queries: a world without Stopwords",
+  "date":"March 7, 2016",
+  "category": "Engineering",
+  "author":{
+    "first_name": "Gabriel",
+    "last_name": "Moskovicz"
+  }
+}
+
+
+GET my_blogs2/_doc/1
+
+This is how you delete a document
+DELETE my_blogs2/_doc/1
+
+
+bulk updates 
+POST _bulk
+{"update":{"_id":"2","_index":"my_blogs2"}}
+{"doc":{"category":"Engineering"}}
+{"update":{"_id":"2","_index":"my_blogs2"}}
+{"doc":{"author.company":"Elastic"}}
+{"index":{"_index":"my_blogs2","_id":"3"}}
+{"title":"Using Elastic Graph","category":"Engineering","date":"May 25, 2016","author":{"first_name":"Mark","last_name":"Harwood","company":"Elastic"}}
+
+
+POST my_blogs2/_bulk
+{"update":{"_id":"2"}}
+{"doc":{"category":"Engineering", "author.company":"Elastic"}}
+
+**HOW TO UPDATED NESTED PROPERTIES????
+
+
+GET my_blogs2/_search
+
+
+GET /_mget
+{
+    "docs" : [
+        {
+            "_index" : "my_blogs2",
+            "_id" : "3"
+        },
+        {
+            "_index" : "my_blogs2",
+            "_id" : "2"
+        }
+    ]
+}
+
+GET blogs/_search
+
+GET logs_server1,logs_server2,logs_server3/_count
+GET logs_server*/_count

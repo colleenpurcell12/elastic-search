@@ -1,0 +1,4873 @@
+Lab 1.1 class Blog {
+  String id;
+  String title;
+  String[] products;
+  Author[] authors;
+
+  /* list of methods */
+  ...
+}
+
+class Author {
+  String name;
+  Company company;
+
+  /* list of methods */
+  ...
+}
+
+public class Company {
+  String name;
+  Country country;
+
+  /* list of methods */
+  ...
+}
+
+public class Country {
+  String name;
+  String code;
+
+  /* list of methods */
+  ...
+}
+
+{
+  "id": 1,
+  "title": "sample title",
+  "products": ["logstash", "beats"],
+  "authors":[
+    {
+      "name":"joe",
+      "company": {
+        "name": "Moodys",
+        "country": {
+          "name": "USA",
+          "code": "123"
+        }
+      }
+    }
+  ]
+}
+
+For the following, note that all proper nouns are multi field text and keyword, id and code are only type keyword since it doesnt make sense to parse and analyze them
+PUT denormalized_blogs/_mapping
+{
+  "properties": {
+    "id": {
+      "type": "keyword"
+    },
+    "title": {
+      "type": "text",
+      "analyzer": "english",
+      "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+    },
+    "products": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword"
+        }
+      }
+    },
+    "authors": {
+      "type": "object",
+      "properties": {
+        "name":{
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        },
+        "company": {
+          "type": "object"
+          "properties": {
+            "name": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "country": {
+              "type": "object"
+              "properties": {
+                "name":  {
+                  "type": "text",
+                  "fields": {
+                    "keyword": {
+                      "type": "keyword"
+                    }
+                  }
+                },
+                "code":  {"type": "keyword"}
+              }
+            }
+          }
+        },
+      }
+    }
+  }
+}
+
+POST denormalized_blogs/_bulk
+{"index":{"_id":1}}
+{"id":"1","title":"Time Series with Kibana","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}}]}
+{"index":{"_id":2}}
+{"id":"2","title":"Memory Issues We'll Remember","authors":[{"name":"Chris Overton","company":{"country":{"code":"FR","name":"France"},"name":"Globex"}},{"name":"Alex Brasetvik","company":{"country":{"code":"BR","name":"Brazil"},"name":"Elastic"}}]}
+{"index":{"_id":3}}
+{"id":"3","title":"Making Kibana Accessible","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}},{"name":"Tim Roes","company":{"country":{"code":"JP","name":"Japan"},"name":"Soylent"}}]}
+
+
+Write and execute a query that returns all blogs written by a chris who works at Globex.
+
+GET denormalized_blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {"authors.name": "chris"}
+        },
+        {
+          "match": {"authors.company.name.keyword": "Globex"}
+        }
+      ]
+    }
+  }
+}
+Write and execute an aggregation that returns the top 5 companies that have an author who wrote a blog.
+**not asking for field author, wierd wording
+
+GET denormalized_blogs/_search?size=0
+{
+    "aggs" : {
+        "top_5_companies" : {
+            "terms" : {
+                "field" : "authors.company.name.keyword"
+            }
+        }
+    }
+}
+
+all blogs written by any alex who works at Elastic.Why did we get results of alex from ACME who coauthored with Chris from Elastic?
+GET denormalized_blogs/_search
+{
+  "_source": {
+    "includes": ["authors.name", "authors.company.name"]
+  },
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {"authors.name": "alex"}
+        },
+        {
+          "match": {"authors.company.name.keyword": "Elastic"}
+        }
+      ]
+    }
+  }
+}
+
+Notes from Section 1.2 on nested and join data type
+
+
+PUT blogs_example
+{
+  "mappings": {
+    "properties": {
+      "title": {
+        "type": "text"
+      },
+      "authors": {
+        "type": "nested",
+        "properties": {
+          "name": {
+            "type": "text"
+          },
+          "company": {
+            "type": "keyword"
+          }
+        }
+      }
+    }
+  }
+}
+
+GET blogs_example/_search
+{
+  "size": 0,
+  "aggs": {
+    "nested_authors": {
+      "nested": {
+        "path": "authors"
+      },
+      "aggs": {
+        "companies": {
+          "terms": {
+            "field": "authors.company.keyword"
+          },
+          "aggs": {
+            "authors": {
+              "terms": {
+                "field": "authors.name.keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+
+Lab 1.2
+
+PUT nested_blogs/_mapping
+{
+  "properties": {
+    "id": {
+      "type": "keyword"
+    },
+    "title": {
+      "type": "text",
+      "analyzer": "english",
+      "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+    },
+    "products": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword"
+        }
+      }
+    },
+    "authors": {
+      "type": "nested",
+      "properties": {
+        "name":{
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        },
+        "company": {
+          "type": "object"
+          "properties": {
+            "name": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "country": {
+              "type": "object"
+              "properties": {
+                "name":  {
+                  "type": "text",
+                  "fields": {
+                    "keyword": {
+                      "type": "keyword"
+                    }
+                  }
+                },
+                "code":  {"type": "keyword"}
+              }
+            }
+          }
+        },
+      }
+    }
+  }
+}
+
+POST nested_blogs/_bulk
+{"index":{"_id":1}}
+{"id":"1","title":"Time Series with Kibana","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}}]}
+{"index":{"_id":2}}
+{"id":"2","title":"Memory Issues We'll Remember","authors":[{"name":"Chris Overton","company":{"country":{"code":"FR","name":"France"},"name":"Globex"}},{"name":"Alex Brasetvik","company":{"country":{"code":"BR","name":"Brazil"},"name":"Elastic"}}]}
+{"index":{"_id":3}}
+{"id":"3","title":"Making Kibana Accessible","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}},{"name":"Tim Roes","company":{"country":{"code":"JP","name":"Japan"},"name":"Soylent"}}]}
+
+
+modify the query from the first step to execute a nested query. It should return a single document now
+
+GET nested_blogs/_search
+{
+   "query":  {
+        "nested" : {
+            "path" : "authors",
+            "query": {
+              "bool": {
+                "must": [
+                  {
+                    "match": {
+                      "authors.name": "alex"
+                    }
+                  },
+                  {
+                    "match": {
+                      "authors.company.name.keyword": "Elastic"
+                    }
+                  }
+                ]
+              }
+            }
+        }
+   }
+}
+
+
+Problem with the agg below? The result returns many authors as a sub-bucket of a company that they don’t work for
+
+GET nested_blogs/_search
+{
+  "size": 0,
+  "aggs" : {
+    "authors" : {
+      "nested" : {
+        "path" : "authors"
+      },
+      "aggs": {
+        "NAME": {
+          "terms": {
+            "field": "authors.company.name.keyword"
+          },
+          "aggs": {
+            "NAME": {
+              "terms": {
+                "field": "authors.name.keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+Lab 1.3: Field Modeling and the Elastic Common Schema
+
+POST version_test/_bulk
+{"index":{"_id":1}}
+{"version":"5.6.1"}
+{"index":{"_id":2}}
+{"version":"6.0.0"}
+{"index":{"_id":3}}
+{"version":"6.8.1"}
+
+GET version_test/_search
+{
+  "query": {
+    "wildcard": {
+      "version.keyword": {
+        "value": "??6??"
+      }
+    }
+  }
+}
+
+GET version_test/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {"match": {
+          "version.keyword": "??6??"
+        }}
+      ]
+    }
+  }
+}
+
+POST version_fixed/_bulk
+{"index":{"_id":1}}
+{"version":{ "display_name": "5.6.1", "major": 5, "minor": 6, "bugfix": 1}}
+{"index":{"_id":2}}
+{"version":{ "display_name": "6.0.0", "major": 6, "minor": 0, "bugfix": 0}}
+{"index":{"_id":3}}
+{"version":{ "display_name": "6.8.1", "major": 6, "minor": 8, "bugfix": 1}}
+
+
+GET version_fixed/_search
+{
+  "query": {
+    "match": {
+      "version.minor": "6"
+    }
+  }
+}
+
+POST loglevel_test1/_doc/
+{
+  "level": "info"
+}
+
+POST loglevel_test2/_doc/
+{
+  "log_level": "warn"
+}
+
+
+GET loglevel_test1/_search?size=0
+{
+  "aggs": {
+    "top_log_levels": {
+      "terms": {
+        "field": "level.keyword",
+        "size": 1
+      }
+    }
+  }
+}
+
+GET loglevel_test2/_search?size=0
+{
+  "aggs": {
+    "top_log_levels": {
+      "terms": {
+        "field": "log_level.keyword",
+        "size": 1
+      }
+    }
+  }
+}
+
+do query both at the same time, use a scripted aggregation which are super expensive
+GET loglevel*/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_levels": {
+      "terms": {
+       "script": "if (doc.containsKey('level.keyword')) { return doc['level.keyword'].value } else { return doc['log_level.keyword'].value }"
+      }
+    }
+  }
+}
+
+
+PUT blogs
+{
+  "mappings": {
+    "properties": {
+      "version": {
+        "properties": {
+          "display_name": {
+            "type": "keyword"
+          },
+          "major": {
+            "type": "byte"
+          },
+          "minor": {
+            "type": "byte"
+          },
+          "bugfix": {
+            "type": "byte"
+          }
+        }
+      }
+    }
+  }
+}
+
+PUT blogs/_doc/1
+{
+  "version": {
+    "display_name": "6.2.1",
+    "major": 6,
+    "minor": 2,
+    "bugfix": 1
+  }
+}
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "match": {
+            "version.major": 5
+          }
+        },
+        {
+          "match": {
+            "version.minor": 4
+          }
+        }
+      ]
+    }
+  }
+}
+
+POST logs_server1/_mapping
+{
+  "properties": {
+    "http": {
+      "properties": {
+        "request": {
+          "properties": {
+            "method": {
+              "type": "alias",
+              "path": "method.keyword"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+GET logs_server1/_search
+{
+  "size": 0,
+  "aggs": {
+    "http_methods": {
+      "terms": {
+        "field": "http.request.method"
+      }
+    }
+  }
+}
+
+PUT loglevel_test1/_mappings
+{
+  "properties": {
+    "log": {
+      "type": "object",
+      "fields": {
+        
+      }
+    }
+  }
+}
+
+GET loglevel_test2/_search?size=0
+{
+  "aggs": {
+    "top_log_levels": {
+      "terms": {
+        "field": "log_level.keyword",
+        "size": 1
+      }
+    }
+  }
+}
+
+Lab 1.4: Analyzers
+
+
+GET denormalized_blogs/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+GET _cat/nodes
+
+GET denormalized_blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "title": "beat"
+          }
+        },
+        {
+          "match": {
+            "author.name": "jongmin"
+          }
+        }
+      ]
+    }
+  }
+}
+
+POST /denormalized_blogs/_doc/111
+{
+  "id": "someid",
+  "title": "My Blog Title",
+  "products": [ "logstash", "beats" ],
+  "authors": [
+    {
+      "name": "Author1",
+      "company": {
+        "name": "Company1",
+        "country": {
+          "name": "Country1",
+          "code": "C1"
+        }
+      }
+    }
+  ]
+}
+
+
+GET denormalized_blogs/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+
+GET /denormalized_blogs/_mapping
+
+
+POST denormalized_blogs/_bulk
+{"index":{"_id":1}}
+{"id":"1","title":"Time Series with Kibana","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}}]}
+{"index":{"_id":2}}
+{"id":"2","title":"Memory Issues We'll Remember","authors":[{"name":"Chris Overton","company":{"country":{"code":"FR","name":"France"},"name":"Globex"}},{"name":"Alex Brasetvik","company":{"country":{"code":"BR","name":"Brazil"},"name":"Elastic"}}]}
+{"index":{"_id":3}}
+{"id":"3","title":"Making Kibana Accessible","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}},{"name":"Tim Roes","company":{"country":{"code":"JP","name":"Japan"},"name":"Soylent"}}]}
+
+
+
+GET denormalized_blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "authors.name": "chris"
+          }
+        },
+        {
+          "match": {
+            "authors.company.name.keyword": "Globex"
+          }
+        }
+      ]
+    }
+  }
+}
+
+GET denormalized_blogs/_search?size=0
+{
+  "aggs": {
+    "top_5_authors": {
+      "terms": {
+        "field": "authors.company.name.keyword",
+         "size": 5
+      }
+    }
+  }
+}
+
+GET denormalized_blogs/_search
+{"query":{"bool":{"must":[{"match":{"authors.name":"alex"}},{"match":{"authors.company.name.keyword":"Elastic"}}]}}}
+
+GET blogs_example/_search
+{
+  "query": {
+    "nested": {
+      "path": "authors",
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "match": {
+                "authors.name": "alex"
+              }
+            },
+            {
+              "match": {
+                "authors.company": "Elastic"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+
+GET blogs_example/_search
+{
+  "size": 0,
+  "aggs": {
+    "nested_authors": {
+      "nested": {
+        "path": "authors"
+      },
+      "aggs": {
+        "companies": {
+          "terms": {
+            "field": "authors.company.keyword"
+          },
+          "aggs": {
+            "authors": {
+              "terms": {
+                "field": "authors.name.keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+GET /denormalized_blogs/_mapping
+
+PUT /nested_blogs
+{
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "keyword"
+      },
+      "authors": {
+        "type": "nested",
+        "properties": {
+          "company": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword"
+                  }
+                }
+              },
+              "country": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "keyword"
+                  },
+                  "name": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "email": {
+        "type": "keyword"
+      },
+      "title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "products": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      }
+    }
+  }
+}
+
+
+POST nested_blogs/_bulk
+{"index":{"_id":1}}
+{"id":"1","title":"Time Series with Kibana","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}}]}
+{"index":{"_id":2}}
+{"id":"2","title":"Memory Issues We'll Remember","authors":[{"name":"Chris Overton","company":{"country":{"code":"FR","name":"France"},"name":"Globex"}},{"name":"Alex Brasetvik","company":{"country":{"code":"BR","name":"Brazil"},"name":"Elastic"}}]}
+{"index":{"_id":3}}
+{"id":"3","title":"Making Kibana Accessible","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}},{"name":"Tim Roes","company":{"country":{"code":"JP","name":"Japan"},"name":"Soylent"}}]}
+
+
+
+GET nested_blogs/_search
+{
+  "query": {
+    "nested": {
+      "path": "authors",
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "match": {
+                "authors.name": "alex"
+              }
+            },
+            {
+              "match": {
+                "authors.company.name.keyword": "Elastic"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+GET nested_blogs/_search
+{
+  "size": 0,
+  "aggs": {
+    "NAME": {
+      "nested": {
+        "path": "authors"
+      },
+      "aggs": {
+        "NAME": {
+          "aggs": {
+            "terms": {
+              "field": "authors.company.name.keyword"
+            },
+            "aggs": {
+              "NAME": {
+                "nested": {
+                  "path": "authors"
+                },
+                "terms": {
+                  "field": "authors.name.keyword"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+POST version_test/_bulk
+{"index":{"_id":1}}
+{"version":"5.6.1"}
+{"index":{"_id":2}}
+{"version":"6.0.0"}
+{"index":{"_id":3}}
+{"version":"6.8.1"}
+
+GET version_test/_search
+{
+  "query":
+  {
+    "match_all": {}
+  }
+}
+
+wildcard query
+
+GET version_test/_search
+{
+  "query": {
+    "wildcard": {
+      "version.keyword": {
+        "value": "??6??"
+      }
+    }
+  }
+}
+
+
+POST version_fixed/_bulk
+{"index":{"_id":1}}
+{"version":{ "display_name": "5.6.1", "major": 5, "minor": 6, "bugfix": 1}}
+{"index":{"_id":2}}
+{"version":{ "display_name": "6.0.0", "major": 6, "minor": 0, "bugfix": 0}}
+{"index":{"_id":3}}
+{"version":{ "display_name": "6.8.1", "major": 6, "minor": 8, "bugfix": 1}}
+
+
+GET version_fixed/_search
+{
+  "query": {
+    "match": {
+      "version.minor": "6"
+    }
+  }
+}
+
+
+POST loglevel_test1/_doc/
+{
+  "level": "info"
+}
+
+POST loglevel_test2/_doc/
+{
+  "log_level": "warn"
+}
+
+GET loglevel_test1/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+SEPARATE
+GET loglevel_test1/_search?size=0
+{
+  "aggs": {
+    "log_levels": {
+      "terms": {
+        "field": "level.keyword",
+        "size": 10
+      }
+    }
+  }
+}
+
+
+GET loglevel_test2/_search?size=0
+{
+  "aggs": {
+    "log_levels": {
+      "terms": {
+        "field": "log_level.keyword",
+        "size": 10
+      }
+    }
+  }
+}
+
+Scripted aggregations
+COMBINED--very computationally expensive and should be avoided as much as possible
+GET loglevel*/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_levels": {
+      "terms": {
+       "script": "if (doc.containsKey('level.keyword')) { return doc['level.keyword'].value } else { return doc['log_level.keyword'].value }"
+      }
+    }
+  }
+}
+
+
+
+
+GET loglevel_test1/_mapping
+
+
+
+PUT loglevel_test1/_mappings
+{
+  "properties": {
+    "log": {
+      "properties": {
+        "level": {
+          "type": "alias",
+          "path": "level.keyword"
+        }
+      }
+    }
+    
+  }
+}
+
+GET loglevel_test2/_mapping
+
+
+
+PUT loglevel_test2/_mappings
+{
+  "properties": {
+    "log": {
+      "properties": {
+        "level": {
+          "type": "alias",
+          "path": "log_level.keyword"
+        }
+      }
+    }
+    
+  }
+}
+
+
+
+GET loglevel*/_search?size=0
+{
+  "aggs": {
+    "log_levels": {
+      "terms": {
+        "field": "log.level",
+        "size": 10
+      }
+    }
+  }
+}
+
+
+PUT blogs_test
+{
+  "settings": {
+    "analysis": {
+      "char_filter": {
+        "xpack_filter": {
+          "type": "mapping",
+          "mappings": [
+            "X-Pack => XPack"
+          ]
+        }
+      },
+      "analyzer": {
+        "my_content_analyzer": {
+          "type": "custom",
+          "char_filter": [
+            "xpack_filter"
+          ],
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase"
+          ]
+        }
+      }
+    }
+  }
+}
+
+default is standard analyzer: lowercase, removes puncuation, keeps stop words
+GET /_analyze
+{
+  "text" :"Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+
+
+
+GET /_analyze
+{
+  "analyzer": "whitespace",
+  "text" :"Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+
+^whitespace doesnt do lowercase and puncuation removal
+
+
+
+removes puncuation, makes lowercase and stop words 
+GET /_analyze
+{
+  "analyzer": "stop",
+  "text" :"Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+
+no analysis performed with keyword analyzer
+GET /_analyze
+{
+  "analyzer": "keyword",
+  "text" :"Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+English: lowercase, removes stop words, and STEMMING
+GET /_analyze
+{
+  "analyzer": "english",
+  "text" :"Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+
+GET /_analyze
+{
+  "tokenizer" : "standard",
+  "filter" : ["lowercase","snowball"],
+  "text" : "This release includes mainly bug fixes."
+}
+
+GET /_analyze
+{
+  "analyzer": "english",
+  "text" : "This release includes mainly bug fixes."
+}
+
+
+
+GET /_analyze
+{
+  "tokenizer" : "standard",
+  "filter" : ["lowercase", "asciifolding"],
+   "text": "Elasticsearch é um motor de buscas distribuído."
+}
+
+GET /_analyze
+{
+  "analyzer" : "standard",
+  "text": "C++ can help it and your IT systems."
+}
+
+GET /_analyze
+{
+  "analyzer" : "english",
+  "text": "C++ can help it and your IT systems."
+}
+
+
+PUT analysis_test
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_analyzer": { 
+          "type": "custom",
+          "char_filter": [
+            "cpp_it"
+          ],
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "stop",
+            "my_stop"
+          ]
+        }
+      },
+      "char_filter": {
+        "cpp_it": { 
+          "type": "mapping",
+          "mappings": [
+            "c++ => cpp",
+            "C++ => cpp",
+            "it => _IT_",
+            "IT => _IT_"
+          ]
+        }
+      },
+      "filter": {
+        "my_stop": {
+          "type": "stop",
+          "stopwords": ["can", "we", "our", "you", "your", "all"]
+        }
+      }
+    }
+  }
+}
+
+GET analysis_test/_analyze
+{
+  "analyzer" : "my_analyzer",
+  "text": "C++ can help it and your IT systems."
+}
+
+
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": "c++"
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "title": "IT"
+    }
+  }
+}
+
+PUT blogs_analyzed
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_analyzer": { 
+          "type": "custom",
+          "char_filter": [
+            "cpp_it"
+          ],
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "stop",
+            "my_stop"
+          ]
+        }
+      },
+      "char_filter": {
+        "cpp_it": { 
+          "type": "mapping",
+          "mappings": [
+            "c++ => cpp",
+            "C++ => cpp",
+            "it => _IT_",
+            "IT => _IT_"
+          ]
+        }
+      },
+      "filter": {
+        "my_stop": {
+          "type": "stop",
+          "stopwords": ["can", "we", "our", "you", "your", "all"]
+        }
+      }
+    }
+  }
+}
+
+
+GET blogs_analyzed/_mapping
+{
+  "properties": {
+    "content": {
+      "type": "text",
+      
+      "fields": {
+        "my_analyzer": { 
+           "type":  "text",
+           "analyzer": "my_analyzer"
+        }
+      }
+    },
+    "title": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          },
+        "my_analyzer": { 
+           "type":  "text",
+           "analyzer": "my_analyzer"
+        }
+      }
+    }
+  }
+}
+
+
+POST _reindex?wait_for_completion=false
+{
+  "source": {"index": "blogs"},
+  "dest":   {"index": "blogs_analyzed"}
+}
+
+
+POST _reindex
+{
+  "source": {
+    "index": "blogs"
+  },
+  "dest": {
+    "index": "blogs_fixed"
+  }
+}
+
+
+
+POST _reindex
+{
+  "max_docs": 100,
+  "source": {
+    "index": "blogs",
+    "query": {
+      "match": {
+        "category": "Engineering"
+      }
+    }
+  },
+  "dest": {
+    "index": "blogs_fixed"
+  }
+}
+
+
+PUT blogs_fixed/_mapping
+{
+  "properties": {
+    "content": {
+      "type": "text",
+      "fields": {
+        "english": {
+          "type": "text",
+          "analyzer": "english"
+        }
+      }
+    }
+  }
+}
+
+GET blogs_fixed/_search
+{
+  "query": {
+    "match": {
+      "content.english": "performance tips"
+    }
+  }
+}
+
+
+POST blogs_fixed/_delete_by_query
+{
+  "query": {
+    "match": {
+      "author.keyword": "Clinton Gormley"
+    }
+  }
+}
+
+POST _reindex?slices=5
+{
+  "source": {
+    "index": "blogs",
+    "size": 500
+  },
+  "dest": {
+    "index": "blogs_fixed"
+  }
+}
+
+
+Lab 2.1
+
+DELETE blogs_fixed
+
+PUT blogs_fixed
+{
+  "mappings": {
+    "properties": {
+      "author": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "category": {
+        "type": "keyword"
+      },
+      "content": {
+        "type": "text"
+      },
+      "locales": {
+        "type": "keyword"
+      },
+      "publish_date": {
+        "type": "date"
+      },
+      "seo_title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "title": {
+        "type": "text"
+      },
+      "url": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "number_of_views": {
+        "type": "integer"
+      },
+      "reindexBatch": {
+        "type": "byte"
+      }
+      
+    }
+  }
+}
+
+POST _reindex?wait_for_completion=false
+{
+  "source": {
+    "index": "blogs"
+  },
+  "dest": {
+    "index": "blogs_fixed"
+  },
+  "script": {
+    "source": "ctx._source['reindexBatch'] = 1;"
+  }
+}
+
+GET blogs_fixed/_search?size=1
+
+POST blogs_fixed/_close
+
+PUT blogs_fixed/_settings
+{
+  "analysis": {
+    "char_filter": {
+      "cpp_it": {
+        "type": "mapping",
+        "mappings": [
+          "c++ => cpp",
+          "C++ => cpp",
+          "IT => _IT_"
+        ]
+      }
+    },
+    "filter": {
+      "my_stop": {
+        "type": "stop",
+        "stopwords": [
+          "can",
+          "we",
+          "our",
+          "you",
+          "your",
+          "all"
+        ]
+      }
+    },
+    "analyzer": {
+      "my_analyzer": {
+        "tokenizer": "standard",
+        "char_filter": [
+          "cpp_it"
+        ],
+        "filter": [
+          "lowercase",
+          "stop",
+          "my_stop"
+        ]
+      }
+    }
+  }
+}
+
+POST blogs_fixed/_open
+
+GET blogs_fixed/_mapping
+
+PUT blogs_fixed/_mapping
+{
+  "properties":{
+   "content" : {
+      "type" : "text",
+      "fields": {
+        "my_analyzer": {
+          "type": "text",
+          "analyzer": "my_analyzer"
+        }
+      }
+    },
+    "title" : {
+      "type" : "text",
+      "fields": {
+        "my_analyzer": {
+          "type": "text",
+          "analyzer": "my_analyzer"
+        }
+      }
+    }
+  }
+}
+
+GET blogs_fixed/_search
+{
+  "query": {
+    "match": {
+      "content.my_analyzer": "c++"
+    }
+  }
+}
+
+POST blogs_fixed/_update_by_query
+{  "query": {
+    "match": {
+       "reindexBatch": 1
+    }
+  },
+  "script": {
+    "source": "ctx._source['reindexBatch'] = 2;"
+  }
+}
+
+POST blogs_fixed/_delete_by_query
+{
+  "query": {
+    "match": {
+      "category": "Releases"
+    }
+  }
+}
+
+Course Content
+PUT _ingest/pipeline/my-pipeline-id
+{
+  "description": "DESCRIPTION",
+  "processors": [
+    {}
+  ],
+  "on_failure": [
+    {}
+  ]
+}
+
+
+PUT _ingest/pipeline/my_pipeline
+{
+  "processors": [
+    {
+      "set": {
+        "field": "number_of_views",
+        "value": 0
+      }
+    }
+  ]
+}
+
+POST _ingest/pipeline/my_pipeline/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "author": "Shay Banon",
+        "blog_title": "You know, for Search!"
+      }
+    }
+  ]
+}
+
+PUT blogs_fixed
+{
+  "settings": {
+    "default_pipeline": "blogs_pipeline"
+  }
+}
+Lab 2.2
+
+
+GET blogs_fixed/_search
+{
+  "size": 0,
+  "aggs": {
+    "locale_terms": {
+      "terms": {
+        "field": "locales",
+        "size": 10
+      }
+    }
+  }
+}
+
+PUT _ingest/pipeline/fix_locales
+{
+  "processors": [
+    {
+      "set": {
+        "if": "ctx['locales'].empty",
+        "field": "locales",
+        "value": "en-en"
+      }
+    },
+    {
+      "set": {
+        "field": "reindexBatch",
+        "value": 3
+      }
+    },
+    {
+      "split": {
+        "field": "locales",
+        "separator": ","
+      }
+    }
+  ]
+}
+
+POST _ingest/pipeline/fix_locales/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "locales": "de-de,fr-fr,ja-jp,ko-kr"
+      }
+    },
+    {
+      "_source": {
+        "locales": ""
+      }
+    }
+  ]
+}
+
+POST blogs_fixed/_update_by_query?pipeline=fix_locales
+{
+  "query": {
+    "match": {
+      "reindexBatch": 2
+    }
+  }
+}
+
+
+GET _nodes/stats/ingest?filter_path=nodes.*.ingest.pipelines.fix_locales
+
+
+NOT FINISHED WITH THIS LAB
+
+Lab 2.3
+
+
+
+GET blogs_fixed/_search
+{
+  "query": {
+    "bool": {
+      "filter": {
+        "match": {
+          "seo_title.keyword": ""
+        }
+      }
+    }
+  }
+}
+
+
+PUT _ingest/pipeline/fix_seo_title
+{ 
+  "processors": [
+    {
+      "script": {
+        "source":
+         """
+         if ("".equals(ctx['seo_title'])) {
+           ctx['seo_title']=ctx['title'];
+           
+         }
+         ctx['reindexBatch'] = 5;
+         """
+        }
+    }
+  ]
+}
+
+TEST THE NEW PIPELINE
+POST _ingest/pipeline/fix_seo_title/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "title": "Where in the World is Elastic? - Elastic{ON}Tour London & Paris",
+        "seo_title": ""
+      }
+    },
+    {
+      "_source": {
+        "title": "This week in Elasticsearch and Apache Lucene",
+        "seo_title": "What's new in Elasticsearch and Apache Lucene"
+      }
+    }
+  ]
+}
+
+
+POST blogs_fixed/_update_by_query?pipeline=fix_seo_title
+{
+  "query": {
+    "match": {
+      "reindexBatch": "3"
+    }
+  }
+}
+
+GET blogs_fixed/_search
+{
+  "query": {
+    "bool": {
+      "filter": {
+        "match": {
+          "seo_title.keyword": ""
+        }
+      }
+    }
+  }
+}
+
+
+PUT _ingest/pipeline/fix_num_views
+{ 
+  "processors": [
+    {
+      "script": {
+        "source":
+         """
+         ctx['number_of_views'] =0;
+         """
+        }
+    }
+  ]
+}
+POST _ingest/pipeline/fix_num_views/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "title": "test1"
+      }
+    },
+    {
+      "_source": {
+        "title": "test2"
+        
+      }
+    }
+  ]
+}
+
+
+POST blogs_fixed/_update_by_query?pipeline=fix_num_views
+{
+  "query": {
+    "match_all": {
+    }
+  }
+}
+
+
+Simpler in one step:
+POST blogs_fixed/_update_by_query
+{
+  "script": {
+    "source": "ctx._source['number_of_views'] = 0"
+  }
+}
+ONLY ON STEP 7
+
+
+
+
+GET /
+
+GET _search
+
+PUT new_index/_doc/1
+{
+  "security_test": "this will fail"
+}
+
+GET logs_*/_search?request_cache=true
+{
+  "size": 10,
+  "aggs": {
+    "NAME": {
+      "terms": {
+        "field": "geoip.country_name.keyword",
+        "size": 100
+      },
+      "aggs": {
+        "NAME": {
+          "terms": {
+            "field": "geoip.region_name.keyword",
+            "size": 100
+          },
+          "aggs": {
+            "NAME": {
+              "terms": {
+                "field": "geoip.city_name.keyword",
+                "size": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+Lab 3.3
+PUT temp1
+GET _cat/shards/temp1?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+
+
+
+PUT /temp3
+{
+    "settings" : {
+        "index" : {
+            "number_of_shards" : 3, 
+            "number_of_replicas" : 0,
+            "refresh_interval": -1
+        }
+    }
+}
+
+
+PUT temp3
+{
+  "settings": {
+    "index.refresh_interval": -1,
+    "index.number_of_replicas": 0,
+    "index.number_of_shards": 3
+  }
+}
+
+
+GET _cat/shards/temp3?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+
+POST _reindex?wait_for_completion=false
+{
+  "source": {
+    "index": "logs_server*"
+  },
+  "dest": {
+    "index": "temp3"
+  }
+}
+
+GET temp3/_count
+GET _tasks?actions=*reindex
+
+GET _cat/indices/temp3?v
+
+
+PUT temp3/_settings
+{
+  "index.refresh_interval": "1s"
+}
+
+GET temp3/_count
+
+
+PUT temp3/_settings
+{
+  "index.auto_expand_replicas": "0-all"
+}
+
+GET _cat/shards/temp3?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+
+
+PUT _snapshot/my_repo
+{
+  "type": "fs",
+  "settings": {
+    "location": "/mnt/my_repo_folder"
+  }
+}
+"type": "s3",
+"settings": {
+  "bucket": "my_s3_bucket_name"
+  }
+
+
+POST _snapshot/my_repo/my_snapshot_2/_restore
+{
+  "indices": "logs-*",
+  "ignore_unavailable": true,
+  "include_global_state": false,
+  "rename_pattern": "logs-(.+)",
+  "rename_replacement": "restored-logs-$1"
+}
+
+
+Lab 4.1: Cluster Backup
+
+PUT _snapshot/my_local_repo
+{
+  "type": "fs",
+  "settings": {
+    "location": "/shared_folder/my_repo"
+  }
+}
+
+
+
+
+PUT _cluster/settings
+{
+  "transient": {
+    "cluster.routing.allocation.enable" : "none"
+  }
+}
+
+PUT _cluster/settings
+{
+  "transient": {
+    "cluster.routing.allocation.enable": "all"
+  }
+}
+
+
+POST _snapshot/my_local_repo/cluster_snapshot_1
+{
+  "indices": "logs_server-*",
+  "ignore_unavailable": true,
+  "include_global_state": true
+}
+
+GET _snapshot/my_local_repo/_all
+
+
+POST _snapshot/my_local_repo/cluster_snapshot_1/_restore
+{
+  "indices": "logs_server*",
+  "ignore_unavailable": true,
+  "include_global_state": false,
+  "rename_pattern": "logs_server(.+)",
+  "rename_replacement": "restored_logs_$1"
+}
+
+GET _cat/indices?v
+
+Lab 4.2: Overview of Upgrades and Cluster Restart
+POST _analyze
+{
+    "tokenizer": "icu_tokenizer",
+    "text": ["星球 战是我最喜欢的电影"]
+}
+
+Notes Topogolo
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.awareness.attributes": "my_rack_id"
+  }
+}
+
+Lab 4.3
+GET _cat/nodes?v&s=name
+GET _cat/nodeattrs?v&s=name
+GET _cat/shards?h=index,shard,prirep,node&s=index,prirep
+
+PUT _cluster/settings
+{
+  "transient": {
+    "cluster": {
+      "routing": {
+        "allocation.awareness.attributes": "my_rack"
+      }
+    }
+  }
+}
+
+GET _cat/shards?h=index,shard,prirep,node&s=index,prirep
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster": {
+      "routing": {
+        "allocation.awareness.attributes": "my_rack",
+        "allocation.awareness.force.my_rack.values": "rack1,rack2"
+      }
+    }
+  }
+}
+GET _cat/shards?h=index,shard,prirep,node&s=index,prirep
+
+
+--> basically there was no point in making copies of the primary shards (replicas) on the same rack, so when node2/node4 were down, no replicas got recreated on node1/node3
+
+
+Lab 4.4: Multi Cluster Setups
+
+
+PUT comments
+{
+  "mappings" : {
+    "properties" : {
+      "comment" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "movie" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "rating" : {
+        "type" : "long"
+      },
+      "username" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      }
+    }
+  }
+}
+
+
+PUT comments/_doc/7
+{"username": "ricardo", "movie": "Star Trek IV: The Voyage Home","comment": "Loved it!", "rating": 5}
+
+PUT comments/_doc/8
+{"username": "sara", "movie": "Wonder Woman","comment": "Finally a good DC Comics movie", "rating": 4}
+
+
+Configure my_cluster so that it can run cross cluster searches onto my_cluster_2.
+
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.remote" : {
+      "my_cluster_2" : {
+        "seeds" : ["server6:9300"]
+      }
+    }
+  }
+}
+
+GET my_cluster_2:comments,comments/_search
+
+
+GET comments,my_cluster_2:comments/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+PUT my_replicated_blogs
+{
+  "settings": {
+    "index": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "soft_deletes": {
+        "enabled": true
+      }
+    }
+  },
+  "mappings" : {
+    "properties" : {
+      "author" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "category" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "content" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "locales" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "publish_date" : {
+        "type" : "date"
+      },
+      "seo_title" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "some_other_field" : {
+        "type" : "text"
+      },
+      "title" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "url" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      }
+    }
+  }
+}
+
+
+PUT /_cluster/settings
+{
+  "persistent": {
+    "cluster.remote": {
+      "my_cluster": {
+        "seeds": [
+          "server1:9300",
+          "server2:9300",
+          "server3:9300"
+        ]
+      }
+    }
+  }
+}
+
+POST _reindex?wait_for_completion=false
+{
+  "source": {
+    "index": "blogs"
+  },
+  "dest": {
+    "index": "my_replicated_blogs"
+  }
+}
+
+
+
+
+PUT _template/logs_template
+{
+  "index_patterns": "logs-*",
+  "order": 1,
+  "settings": {
+    "number_of_shards": 4,
+    "number_of_replicas": 1
+  },
+  "mappings": {
+    "properties": {
+      "@timestamp": {
+        "type": "date"
+      }
+    }
+  }
+}
+
+PUT _template/logs_2018_template
+{
+  "index_patterns": "logs-2018*",
+  "order": 5,
+  "settings": {
+    "number_of_shards": 6,
+    "number_of_replicas": 2
+  }
+}
+
+PUT _scripts/my_search_template
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+      "query": {
+        "match": {
+          "{{my_field}}": "{{my_value}}"
+        }
+      }
+    }
+  }
+}
+
+GET blogs/_search/template
+{
+  "id": "my_search_template",
+  "params": {
+    "my_field": "title",
+    "my_value": "shard"
+  }
+}
+
+
+
+PUT _scripts/blogs_webform_search
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+      "query": {
+        "bool": {
+          "must": {
+            "multi_match": {
+              "query": "{{blog_query}}",
+              "fields": [
+                "title",
+                "title.*",
+                "content",
+                "content.*"
+              ],
+              "operator": "and",
+              "type": "most_fields"
+            }
+          },
+          "should": {
+            "multi_match": {
+              "query": "{{blog_query}}",
+              "fields": [
+                "title",
+                "title.*",
+                "content",
+                "content.*"
+              ],
+              "type": "phrase"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+
+GET blogs_fixed/_search/template
+{
+  "id": "blogs_webform_search",
+  "params": {
+    "blog_query": "shard allocation"
+  }
+}
+
+Lab 5.1: Controlling Shard Allocation
+
+GET _cat/nodes?v&s=name
+GET _cat/nodeattrs?v&s=name
+
+
+PUT logs_server4
+
+
+PUT logs_server1/_settings
+{
+  "index.routing.allocation.require.my_temp": "warm"
+}
+
+PUT logs_server2/_settings
+{
+  "index.routing.allocation.require.my_temp": "warm"
+}
+
+PUT logs_server3/_settings
+{
+  "index.routing.allocation.require.my_temp": "warm"
+}
+
+
+
+PUT logs_server4/_settings
+{
+  "index.routing.allocation.require.my_temp": "hot"
+}
+
+GET _cat/shards/logs_server*?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+
+
+
+Lab 6.2: Aliases and Templates
+
+PUT /logs_server*/_alias/access_logs
+
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "logs_server*",
+        "alias": "access_logs"
+      }
+    }
+  ]
+}
+
+GET access_logs/_count
+
+PUT access_logs/_doc/3
+{
+  "@timestamp": "2017-05-05T02:07:51.407Z",
+  "host": "server1",
+  "user_agent": "Amazon CloudFront",
+  "originalUrl": "/blog/elasticsearch-5-4-0-released",
+  "response_size": 49921,
+  "input": {
+    "type": "log"
+  },
+  "http_version": "1.1",
+  "runtime_ms": 108,
+  "method": "GET",
+  "language": {
+    "url": "/blog/elasticsearch-5-4-0-released",
+    "code": "en-us"
+  },
+  "status_code": 200,
+  "geoip": {
+    "country_code3": "JP",
+    "continent_code": "AS",
+    "location": {
+      "lon": 139.69,
+      "lat": 35.69
+    },
+    "country_name": "Japan",
+    "country_code2": "JP"
+  },
+  "level": "info"
+}
+
+
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "logs_server3",
+        "alias": "access_logs",
+        "is_write_index": true
+      }
+    }
+  ]
+}
+
+
+GET logs_server1
+
+PUT _template/access_logs_template
+{
+  "index_patterns": ["logs_server*"],
+  "order": 10
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas" : "1"
+  },
+  "mappings": {}
+}
+
+PUT logs_server6
+GET logs_server6
+
+
+REMEMBER to set prior write index setting to false, if you wanna swap it out for a new write index
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "logs_server5",
+        "alias": "access_logs",
+        "is_write_index": true
+      }
+    },
+    {
+      "add": {
+        "index": "logs_server4",
+        "alias": "access_logs",
+        "is_write_index": false
+      }
+    },
+    {
+      "remove": {
+        "index": "logs_server1",
+        "alias": "access_logs"
+      }
+    }
+  ]
+}
+
+PUT access_logs/_doc/1
+{
+  "@timestamp": "2018-03-21T05:57:19.722Z",
+  "originalUrl": "/blog/logstash-jdbc-input-plugin",
+  "host": "server2",
+  "response_size": 58754,
+  "status_code": 200,
+  "method": "GET",
+  "runtime_ms": 143,
+  "geoip": {
+    "country_code2": "IN",
+    "country_code3": "IN",
+    "continent_code": "AS",
+    "location": {
+      "lon": 77.5833,
+      "lat": 12.9833
+    },
+    "region_name": "Karnataka",
+    "city_name": "Bengaluru",
+    "country_name": "India"
+  },
+  "language": {
+    "url": "/blog/logstash-jdbc-input-plugin",
+    "code": "en-us"
+  },
+  "user_agent": "Amazon CloudFront",
+  "http_version": "1.1",
+  "level": "info"
+}
+
+
+GET logs_server5/_doc/1
+
+
+
+PUT _scripts/daily_hits
+{
+  "script": {
+    "lang": "mustache",
+    "source": """
+    {
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": "{{start_date}}"
+                  {{#end_date}}
+                  ,
+                  "lt": "{{end_date}}"
+                  {{/end_date}}
+                }
+              }
+            },
+            {
+              "match": {
+                "originalURL.keyword":" {{url}}"
+              }
+            }
+          ]
+        }
+      }
+    }
+    """
+  }
+}
+
+GET _search/template
+{
+  "id": "daily_hits",
+  "params": {
+    "url": "/blog/brewing-in-beats-postgresql-module-in-filebeat",
+    "start_date": "2017-08-11"
+  }
+}
+              
+              
+GET _search/template
+{
+    "source" : {
+      "query": { "match" : { "{{my_field}}" : "{{my_value}}" } },
+      "size" : "{{my_size}}"
+    },
+    "params" : {
+        "my_field" : "message",
+        "my_value" : "some message",
+        "my_size" : 5
+    }
+}
+
+
+
+
+
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "logs_server*",
+        "alias": "access_logs"
+      }
+    }
+  ]
+}
+
+
+GET access_logs/_count
+
+
+PUT access_logs/_doc/3
+{
+  "@timestamp": "2017-05-05T02:07:51.407Z",
+  "host": "server1",
+  "user_agent": "Amazon CloudFront",
+  "originalUrl": "/blog/elasticsearch-5-4-0-released",
+  "response_size": 49921,
+  "input": {
+    "type": "log"
+  },
+  "http_version": "1.1",
+  "runtime_ms": 108,
+  "method": "GET",
+  "language": {
+    "url": "/blog/elasticsearch-5-4-0-released",
+    "code": "en-us"
+  },
+  "status_code": 200,
+  "geoip": {
+    "country_code3": "JP",
+    "continent_code": "AS",
+    "location": {
+      "lon": 139.69,
+      "lat": 35.69
+    },
+    "country_name": "Japan",
+    "country_code2": "JP"
+  },
+  "level": "info"
+}
+
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "logs_server3",
+        "alias": "access_logs",
+        "is_write_index" : true
+      }
+    }
+  ]
+}
+
+GET logs_server1
+
+PUT _template/access_logs_template
+{
+  "index_patterns": "logs_server*",
+  "order": 10,
+  "settings": {
+    "number_of_shards": "1",
+    "number_of_replicas": "1"
+  },
+  "mappings": {
+    "properties": {
+      "@timestamp": {
+        "type": "date"
+      },
+      "geoip": {
+        "properties": {
+          "city_name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "continent_code": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "country_code2": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "country_code3": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "country_name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "location": {
+            "properties": {
+              "lat": {
+                "type": "float"
+              },
+              "lon": {
+                "type": "float"
+              }
+            }
+          },
+          "region_name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          }
+        }
+      },
+      "host": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "http_version": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "language": {
+        "properties": {
+          "code": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "url": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          }
+        }
+      },
+      "level": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "method": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "originalUrl": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "response_size": {
+        "type": "long"
+      },
+      "runtime_ms": {
+        "type": "long"
+      },
+      "status_code": {
+        "type": "long"
+      },
+      "user_agent": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      }
+    }
+  }
+}
+
+              
+PUT logs_server5
+GET logs_server5
+ 
+ 
+ 1. remove log_server1 from alias
+ 2. change the write alias: by first removing the log_server3 as the write index, and then by adding log_server4 as the new write index
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "alias": "access_logs",
+        "index": "logs_server3",
+        "is_write_index": false
+      }
+    },
+    {
+      "add": {
+        "alias": "access_logs",
+        "index": "logs_server4",
+        "is_write_index": true
+      }
+    },
+    {
+      "remove": {
+        "alias": "access_logs",
+        "index": "logs_server1"
+      }
+    }
+  ]
+}
+
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "INDEX_NAME",
+        "alias": "ALIAS_NAME"
+      }
+    },
+    {
+      "remove": {
+        "index": "INDEX_NAME",
+        "alias": "ALIAS_NAME"
+      }
+    }
+  ]
+}
+
+
+PUT _template/logs_template
+{
+  "index_patterns": "logs-*",
+  "order": 1,
+  "settings": {
+    "number_of_shards": 4,
+    "number_of_replicas": 1
+  },
+  "mappings": {
+    "properties": {
+      "@timestamp": {
+        "type": "date"
+      }
+    }
+  }
+}
+
+PUT _template/logs_template
+{
+  "index_patterns": "logs-*",
+  "order": 1,
+  "settings": {
+    "number_of_shards": 4,
+    "number_of_replicas": 1
+  },
+  "mappings": {
+    "properties": {
+      "@timestamp": {
+        "type": "date"
+      }
+    }
+  }
+}
+
+PUT _template/logs_2018_template
+{
+  "index_patterns": "logs-2018*",
+  "order": 5,
+  "settings": {
+    "number_of_shards": 6,
+    "number_of_replicas": 2
+  }
+}
+
+
+PUT _scripts/my_search_template
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+      "query": {
+        "match": {
+          "{{my_field}}": "{{my_value}}"
+        }
+      }
+    }
+  }
+}
+
+
+GET blogs/_search/template
+{
+  "id": "my_search_template",
+  "params": {
+    "my_field": "title",
+    "my_value": "shard"
+  }
+}
+PUT _scripts/blogs_webform_search
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+      "query": {
+        "bool": {
+          "must": {
+            "multi_match": {
+              "query": "{{blog_query}}",
+              "fields": [
+                "title",
+                "title.*",
+                "content",
+                "content.*"
+              ],
+              "operator": "and",
+              "type": "most_fields"
+            }
+          },
+          "should": {
+            "multi_match": {
+              "query": "{{blog_query}}",
+              "fields": [
+                "title",
+                "title.*",
+                "content",
+                "content.*"
+              ],
+              "type": "phrase"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+GET blogs_fixed/_search/template
+{
+  "id": "blogs_webform_search",
+  "params": {
+    "blog_query": "shard allocation"
+  }
+}
+
+
+POST logs-alias/_rollover
+{
+  "conditions": {
+    "max_age": "7d",
+    "max_docs": 1000000,
+    "max_size": "50gb"
+  }
+}
+
+
+POST logs-1/_shrink/logs-1-inactive
+{
+  "settings": {
+    "index.number_of_shards": 1,
+    "index.routing.allocation.require.my_tag": null,
+    "codec": "best_compression"
+  }
+}
+
+POST logs-1-inactive/_forcemerge?max_num_segments=1
+
+
+
+Lab 5.2: Index Management
+
+
+PUT  logs-000001
+{
+  "settings": {
+    "number_of_replicas": 1,
+    "number_of_shards": 4,
+    "routing": {
+      "allocation": {
+        "require": {
+          "my_temp": "hot"
+        }
+      }
+    }
+  },
+  "aliases": {
+    "logs": {
+      "is_write_index": true
+    }
+  }
+}
+
+POST logs/_bulk
+{ "index" : { "_id" : "1"}}
+{ "level" : "INFO", "message" : "recovered [20] indices into cluster_state", "date" : "2018-07-04"}
+{ "index" : { "_id" : "2"}}
+{ "level" : "WARN", "message" : "received shard failed for shard id 0", "date" : "2018-07-04"}
+{ "index" : { "_id" : "3"}}
+{ "level" : "INFO", "message" : "Cluster health status changed from [YELLOW] to [GREEN]", "date" : "2018-07-04"}
+
+GET logs/_search
+
+POST logs/_rollover
+{
+  "conditions": {
+    "max_age": "1d",
+    "max_docs": 2,
+    "max_size": "1gb"
+  },
+  "settings": {
+    "number_of_replicas": 1,
+    "number_of_shards": 4,
+    "routing": {
+      "allocation": {
+        "require": {
+          "my_temp": "hot"
+        }
+      }
+    }
+  }
+}
+
+POST logs/_bulk
+{ "index" : { "_id" : "4"}}
+{ "level" : "INFO", "message" : "[node2] started", "date" : "2018-07-05"}
+{ "index" : { "_id" : "5"}}
+{ "level" : "WARN", "message" : "not enough master nodes discovered during pinging", "date" : "2018-07-05"}
+
+
+
+GET logs-000002/_search
+
+GET logs/_search
+
+DELETE logs
+^that's not the way to remove an alias, you have to hit the aliases endpoint, with actions payload and have a remove index name and alias name object
+
+
+Prepare logs-000001 for shrinking by making it read-only and allocating all the shards to warm nodes.
+
+PUT logs-000001/_settings
+{
+  "routing": {
+    "allocation": {
+      "require": {
+        "my_temp": "warm"
+      }
+    }
+  },
+  "blocks.write": true
+}
+
+Shrink  into shrink-logs-000001 with a single primary shard.
+
+POST logs-000001/_shrink/shrink-logs-000001
+{
+  "settings": {
+    "index.number_of_shards": 1,
+    "codec": "best_compression"
+  }
+}
+
+Suppose you are done writing into shrink-logs-000001, so force merge all of its segments into a single segment.
+
+
+POST shrink-logs-000001/_forcemerge?max_num_segments=1
+
+In a single request, remove the alias logs from logs-000001 and instead assign logs to shrink-logs-000001.
+
+
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "shrink-logs-000001",
+        "alias": "logs"
+      }
+    },
+    {
+      "remove": {
+        "index": "logs-000001",
+        "alias": "logs"
+      }
+    }
+  ]
+}
+
+
+DELETE logs-000001
+
+Notice that searching logs still retrieves all 5 log events:
+
+GET logs/_search
+
+
+Lab 5.3: Index Lifecycle Management
+STEP 2 NOT FINISHED
+
+PUT _template/logs-template
+
+
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "action.auto_create_index": false
+  }
+}
+
+
+PUT test2
+{
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "my_string_fields": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "keyword"
+          }
+        }
+      }
+    ]
+  }
+}
+
+Lab 6.3: Controlling Dynamic Behaviors
+
+PUT dynamic_test/_doc/1
+{
+  "my_field": "A value"
+}
+DELETE dynamic_test
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "action.auto_create_index": false
+  }
+}
+
+how to disable dynamic index creation versus dynamic field create
+
+this fails:
+PUT dynamic_test/_doc/1
+{
+  "my_field": "A value"
+}
+
+
+PUT dynamic_test
+{
+  "mappings": {
+    "properties": {
+      "my_field": {
+        "type": "text"
+      }
+    }
+  }
+}
+
+DELETE dynamic_test
+
+Whitelist the pattern dynamic_test along with all the X-Pack indices.
+
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "action.auto_create_index": "dynamic_test,.monitoring*,.watches,.triggered_watches,.watcher-history*,.ml*"
+  }
+}
+
+PUT dynamic/_doc/1
+{
+  "my_field": "A value"
+}
+
+PUT dynamic_test/_doc/1
+{
+  "my_field": "A value"
+}
+
+
+PUT surveys
+{
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "undefined_string_fields": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "keyword",
+            "index": false
+          }
+        }
+      },
+      {
+        "my_ratings_fields": {
+          "match": "*_rating",
+          "mapping": {
+            "type": "integer"
+          }
+        }
+      }
+    ],
+    "properties": {
+      "job_title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "miles_travelled": {
+        "type": "integer_range"
+      }
+    }
+  }
+}
+
+
+
+PUT surveys/_doc/1
+{
+  "job_title": "Elasticsearch Engineer",
+  "course_rating": 9,
+  "comments": "Great class. I want to get certified now!",
+  "miles_travelled": {
+    "gte" : 0,
+    "lte" : 25
+  }
+}
+
+
+PUT surveys/_doc/2
+{
+  "job_title": "Software Engineer",
+  "labs_rating": 10,
+  "city": "Berlin",
+  "miles_travelled": {
+    "gt": 50,
+    "lte": 100
+  }
+}
+
+
+
+GET surveys2
+
+if you are creating a new index dont use the _mapping API
+PUT surveys2
+{
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "feedback": {
+        "type": "text"
+      },
+      "course_rating": {
+        "type": "integer"
+      }
+    }
+  }
+}
+
+strict_dynamic_mapping_exception
+PUT surveys2/_doc/1
+{
+  "food_rating": 10
+}
+
+
+GET logs*/_search
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": {
+        "match": {
+          "language.url": "time-based indices"
+        }
+      }
+    }
+  },
+  "aggs": {
+    "my_sample": {
+      "sampler": {
+        "shard_size": 100
+      },
+      "aggs": {
+        "top_countries": {
+          "terms": {
+            "field": "geoip.country_name.keyword"
+          }
+        }
+      }
+    }
+  }
+}
+
+Lab 1.4: Analyzers
+
+GET _analyze
+{
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+default analyzer is standard, which does lower case, removes punctuation and special characters (keep stop words)
+
+
+
+GET _analyze
+{
+  "analyzer": "whitespace", 
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+The whitespace analyzer does not lowercase terms and does not remove punctuation.
+
+
+GET _analyze
+{
+  "analyzer": "stop", 
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+parses by space and removes and
+
+GET _analyze
+{
+  "analyzer": "keyword", 
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+no changes haha
+
+
+GET _analyze
+{
+  "analyzer": "english", 
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+stemming! plus whitespace, punctuation and lowercase
+
+which is best for blogs? not keyword, cause it's never match. probably english cause it doesnt change proper nouns. Not whitespace cause it doesnt remove puncctation
+
+GET _analyze
+{
+  "analyzer": "english", 
+  "text": "This release includes mainly bug fixes."
+}
+
+GET _analyze
+{
+  "tokenizer": "standard",
+  "filter": [
+    "lowercase",
+    "snowball"
+  ],
+  "text": "This release includes mainly bug fixes."
+}
+english removes stop words, and it stems the word mainly into mainli instead of main like the snowball filter
+
+english_stemmer versus the snowball_stemmer (main)
+
+Using _analyze, configure and test an analyzer that satisfies the following: uses the standard tokenizer, uses the lowercase token filter, uses the asciifolding token filter
+
+PUT my_index
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_custom_analyzer": {
+          "type": "custom", 
+          "tokenizer": "standard",
+        
+          "filter": [
+            "lowercase",
+            "asciifolding"
+          ]
+        }
+      }
+    }
+  }
+}
+
+POST my_index/_analyze
+{
+  "analyzer": "my_custom_analyzer",
+"text": "Elasticsearch é um motor de buscas distribuído."
+}
+
+SIMPLER JUST TO DO THIS
+
+GET _analyze
+{
+  "tokenizer": "standard",
+  "filter": [
+    "lowercase",
+    "asciifolding"
+  ],
+"text": "Elasticsearch é um motor de buscas distribuído."
+}
+  
+  GET _analyze
+{
+  "tokenizer": "standard",
+  "filter": [
+    "lowercase",
+    "asciifolding"
+  ],
+"text": "C++ can help it and your IT systems."
+}
+  
+GET analysis_test1/_analyze
+{
+  "analyzer": "my_analyzer",
+  "text": "C++ can help it and your IT systems."
+}
+PUT analysis_test1
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_analyzer": { 
+          "type": "custom",
+          "char_filter": [
+            "prog_lang"
+          ],
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "custom_stop"
+          ]
+        }
+      },
+      "char_filter": {
+        "prog_lang": { 
+          "type": "mapping",
+          "mappings": [
+            "IT  => _IT_",
+            "c++  => cpp",
+            "C++  => cpp"
+          ]
+        }
+      },
+      "filter": {
+        "custom_stop": { 
+          "type": "stop",
+          "stopwords": ["can", "we", "our", "you", "your", "all"]
+        }
+      }
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": "c++"
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "title": "IT"
+    }
+  }
+}
+
+
+Create a new index named blogs_analyzed that uses your custom my_analyzer from the previous step
+
+Use the mappings from blogs and add a multi-field to both the content and title fields named my_analyzer. These multi-fields should be of type text and set the analyzer to my_analyzer.
+
+GET blogs/_mapping
+
+Make sure you copy the entire analyzer over
+      
+PUT blogs_analyzed1
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_analyzer": { 
+          "type": "custom",
+          "char_filter": [
+            "prog_lang"
+          ],
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "custom_stop"
+          ]
+        }
+      },
+      "char_filter": {
+        "prog_lang": { 
+          "type": "mapping",
+          "mappings": [
+            "IT  => _IT_",
+            "c++  => cpp",
+            "C++  => cpp"
+          ]
+        }
+      },
+      "filter": {
+        "custom_stop": { 
+          "type": "stop",
+          "stopwords": ["can", "we", "our", "you", "your", "all"]
+        }
+      }
+    }
+  },
+  
+  "mappings" : {
+      "properties" : {
+        "author" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "category" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "content" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            },
+            "my_analyzer" : {
+              "type": "text",
+              "analyzer": "my_analyzer"
+            }
+          }
+        },
+        "locales" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "publish_date" : {
+          "type" : "date"
+        },
+        "seo_title" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "title" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            },
+            "my_analyzer" : {
+              "type": "text",
+              "analyzer": "my_analyzer"
+            }
+          }
+        },
+        "url" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        }
+      }
+    }
+}
+
+
+Reindex
+Run the following command to index the current blogs into your new blogs_analyzed index:
+
+POST _reindex?wait_for_completion=false
+{
+  "source": {"index": "blogs"},
+  "dest":   {"index": "blogs_analyzed1"}
+}
+
+
+Rerun the searches in the new index using the .my_analyzer field and compare results.
+ 
+GET blogs_analyzed1/_search
+{
+  "query": {
+    "match": {
+      "content.my_analyzer": "c++"
+    }
+  }
+}
+
+GET blogs_analyzed1/_search
+{
+  "query": {
+    "match": {
+      "title.my_analyzer": "IT"
+    }
+  }
+}
+
+
+Lab 2.1: Update and Delete by Query and Reindex APIs
+
+
+PUT blogs_fixed1
+{
+  "mappings": {
+    "properties": {
+      "author": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "category": {
+        "type": "keyword"
+      },
+      "content": {
+        "type": "text"
+      },
+      "locales": {
+        "type": "keyword"
+      },
+      "publish_date": {
+        "type": "date"
+      },
+      "seo_title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "title": {
+        "type": "text"
+      },
+      "url": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "number_of_views": {
+        "type": "integer"
+      },
+      "reindexBatch": {
+        "type": "byte"
+      }
+    }
+  }
+}
+
+ When needed, use the code below to update the reindexBatch value.
+"script": {
+    "source": "ctx._source['reindexBatch'] = 1;"
+  }
+  
+  Reindex blogs into blogs_fixed. Make sure to use the script above to set the reindexBatch to 1. You should see 1,594 blogs created in blogs_fixed. 
+POST _reindex?wait_for_completion=false
+{
+  "source": {
+    "index": "blogs"
+  },
+  "dest": {
+    "index": "blogs_fixed1"
+  },
+  "script": {
+    "source": "ctx._source['reindexBatch'] = 1;"
+  }
+}
+  
+  View some of the documents in blogs_fixed and verify that the reindexBatch field was added properly.
+
+
+GET blogs_fixed1/_search
+
+let’s add this analyzer in your new blogs_fixed mapping. The analysis settings are non dynamic and can’t be updated while the index is open. To update the analysis settings you need to close the index. Use the following command to close the blogs_fixed index.
+
+** Note that a closed index is blocked for read/write operations and does not allow all operations that opened indices allow. It is not possible to index documents or to search for documents in a closed index.
+
+POST blogs_fixed1/_close
+
+Add the custom analyzer that you defined in the previous lesson.
+
+
+PUT blogs_fixed1/_settings
+{
+  "analysis": {
+    "char_filter": {
+      "cpp_it": {
+        "type": "mapping",
+        "mappings": [
+          "c++ => cpp",
+          "C++ => cpp",
+          "IT => _IT_"
+        ]
+      }
+    },
+    "filter": {
+      "my_stop": {
+        "type": "stop",
+        "stopwords": [
+          "can",
+          "we",
+          "our",
+          "you",
+          "your",
+          "all"
+        ]
+      }
+    },
+    "analyzer": {
+      "my_analyzer": {
+        "tokenizer": "standard",
+        "char_filter": [
+          "cpp_it"
+        ],
+        "filter": [
+          "lowercase",
+          "stop",
+          "my_stop"
+        ]
+      }
+    }
+  }
+}
+
+POST blogs_fixed1/_open
+
+Update the blogs_fixed mapping to add a multi-field my_analyzer for the field content and title.
+
+
+PUT blogs_fixed1/_mapping
+{
+  "properties": {
+    "content": {
+      "type": "text",
+      "fields": {
+        "my_analyzer": {
+          "type": "text",
+          "analyzer": "my_analyzer"
+        }
+      }
+    },
+    "title": {
+      "type": "text",
+      "fields": {
+        "my_analyzer": {
+          "type": "text",
+          "analyzer": "my_analyzer"
+        }
+      }
+    }
+  }
+}
+
+try to run a query on this new field.
+
+GET blogs_fixed1/_search
+{
+  "query": {
+    "match": {
+      "content.my_analyzer": "c++"
+    }
+  }
+}
+You didn’t get any results why?
+
+The existing data was indexed before this analyzer had been defined so the new field has not yet been populated.
+
+
+POST blogs_fixed1/_update_by_query
+{
+  "script": {
+    "source": "ctx._source['reindexBatch']=2",
+    "lang": "painless"
+  },
+  "query": {
+    "match": {
+      "reindexBatch": 1
+    }
+  }
+}
+
+
+GET blogs_fixed1/_search
+{
+  "query": {
+    "match": {
+      "content.my_analyzer": "c++"
+    }
+  }
+}
+
+you get 2 results now (cause the update_by_query made the documents get updated by the new mapping (multi field for content.my_analyzer)
+
+Delete all the documents where the category is Releases. You should delete 238 documents.
+
+
+POST blogs_fixed1/_delete_by_query
+{
+  "query": {
+    "match": {
+      "category": "Releases"
+    }
+  }
+}
+
+
+Lab 2.2: Ingest Nodes and Pipelines
+Run the following terms aggregation and analyze the results. 
+
+GET blogs_fixed1/_search
+{
+  "size": 0,
+  "aggs": {
+    "locale_terms": {
+      "terms": {
+        "field": "locales",
+        "size": 10
+      }
+    }
+  }
+}
+
+What could be improved on the locales field?
+the locals field values should be an array
+"key" : "de-de,fr-fr,ja-jp,ko-kr",
+~~~
+EXAM PREP: The locales field is empty for 1,290 documents, which is over 90% of the index. These particular documents should have the English locale "en-en". Also, as discussed in the lecture, this field would be much easier to search and aggregate on if it was indexed as an array instead of a single comma-separated list of values. To fix locales, write a pipeline that satisfies the following criteria:
+
+The name of the pipeline is fix_locales
+
+The first processor is a set processor that checks if the locales field is an empty string. If it is empty, assign it the value "en-en". If it is not empty, leave the field as is. TIP: To check if a field is empty you can use ctx['field'].empty in the if option of your processor.
+
+The second set processor should set reindexBatch to 3 for every document
+
+The third processor is a split processor that splits the locales field into an array, using a comma as the separator
+
+
+PUT _ingest/pipeline/fix_locales
+{
+  "description": "make the locals field with empty string into en-en as a default",
+  "processors": [
+    {
+      "set": {
+        "if": "ctx['locales'].empty",
+        "field": "locales",
+        "value": "en-en"
+      }
+    },
+    {
+      "set": {
+        "field": "reindexBatch",
+        "value": "3"
+      }
+    },
+    {
+      "split": {
+        "field": "locales",
+        "separator": ","
+      }
+    }
+  ]
+}
+
+Test two documents on your fix_locales pipeline:
+
+POST /_ingest/pipeline/fix_locales/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "locales": "de-de,fr-fr,ja-jp,ko-kr"
+      }
+    },
+    {
+      "_source": {
+        "locales": ""
+      }
+    }
+  ]
+}
+
+EXAM PREP: Using an _update_by_query, update all documents in blogs_fixed with a reindexBatch equal to 2. Use the fix_locales pipeline to update the documents.
+
+POST blogs_fixed1/_update_by_query?pipeline=fix_locales
+{
+  "query": {
+    "match": {
+      "reindexBatch": 2
+    }
+  }
+}
+
+OPTIONAL: Check the stats of your pipeline by running the following query.
+
+GET _nodes/stats/ingest?filter_path=nodes.*.ingest.pipelines.fix_locales
+
+
+
+GET blogs_fixed1/_search?size=0
+{
+  "aggs": {
+    "locale_terms": {
+      "terms": {
+        "field": "locales",
+        "size": 10
+      }
+    }
+  }
+}
+
+RESPONSE:
+"aggregations": {
+    "locale_terms": {
+      "doc_count_error_upper_bound": 0,
+      "sum_other_doc_count": 0,
+      "buckets": [
+        {
+          "key": "en-en",
+          "doc_count": 1290
+        },
+        {
+          "key": "fr-fr",
+          "doc_count": 43
+        },
+        {
+          "key": "de-de",
+          "doc_count": 41
+        },
+        {
+          "key": "ko-kr",
+          "doc_count": 37
+        },
+        {
+          "key": "ja-jp",
+          "doc_count": 34
+        },
+        {
+          "key": "zh-chs",
+          "doc_count": 8
+        }
+      ]
+    }
+  }
+
+
+GET blogs_fixed/_search
+{
+  "size": 100,
+  "_source": "locales"
+}
+
+EXAM get to know various processors
+PUT _ingest/pipeline/underscore_locales
+{
+  "description" : "changes en-en to en_en",
+  "processors" : [
+    {
+      "foreach" : {
+        "field": "locales",
+        "processor": {
+          "gsub": {
+            "field": "_ingest._value",
+            "pattern": "-",
+            "replacement": "_"
+          }
+        }
+      }
+    },
+    {
+      "set" : {
+        "field": "reindexBatch",
+        "value": "4"
+      }
+    }
+  ]
+}
+
+POST /_ingest/pipeline/underscore_locales/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "locales": [
+          "de-de",
+          "fr-fr",
+          "ja-jp",
+          "ko-kr",
+          "zh-chs"
+        ]
+      }
+    }
+  ]
+}
+
+
+RESPONSE 
+"_source" : {
+  "locales" : [
+    "de_de",
+    "fr_fr",
+    "ja_jp",
+    "ko_kr",
+    "zh_chs"
+  ],
+  "reindexBatch" : 4
+}
+
+
+
+POST blogs_fixed1/_update_by_query?pipeline=underscore_locales
+{
+  "query": {
+    "match": {
+      "reindexBatch": 3
+    }
+  }
+}
+
+GET blogs_fixed1/_search
+{
+  "size": 100,
+  "_source": "locales"
+}
+
+
+Lab 2.3: Painless Scripting
+
+GET blogs_fixed1/_search
+{
+  "query": {
+    "bool": {
+      "filter": {
+        "match": {
+          "seo_title.keyword": ""
+        }
+      }
+    }
+  }
+}
+
+Add a script processor that checks if the seo_title is equal to an empty string "". If it is, set seo_title to the value of the document’s title field.
+
+Set the value of reindexBatch to 5 for every document
+
+
+PUT _ingest/pipeline/fix_seo_title
+{
+  "processors" : [
+    {
+      "script": {
+          "source": """
+            if(ctx['seo_title']==="") {
+              ctx['seo_title'] = ctx['title'];
+            }
+            ctx['reindexBatch'] = 5;
+            """
+        }
+    }
+  ]
+}
+
+
+POST /_ingest/pipeline/fix_seo_title/_simulate
+{
+  "docs": [
+    {
+      "_index": "index",
+      "_id": "id",
+      "_source": {
+        "title": "Where in the World is Elastic? - Elastic{ON}Tour London & Paris",
+        "seo_title": ""
+      }
+    },
+    {
+      "_index": "index",
+      "_id": "id",
+      "_source": {
+        "title": "This week in Elasticsearch and Apache Lucene",
+        "seo_title": "What's new in Elasticsearch and Apache Lucene"
+      }
+    }
+  ]
+}
+
+
+Run an _update_by_query on blogs_fixed, sending each document through your fix_seo_title pipeline. But only update documents that have a reindexBatch value equal to 4
+
+POST blogs_fixed1/_update_by_query?pipeline=fix_seo_title
+{
+  "query": {
+    "match": {
+      "reindexBatch": 4
+    }
+  }
+}
+
+
+this return nill results
+GET blogs_fixed1/_search
+{
+  "query": {
+    "bool": {
+      "filter": {
+        "match": {
+          "seo_title.keyword": ""
+        }
+      }
+    }
+  }
+}
+
+Next, imagine that every document in blogs_fixed should have the number of views of that blog. Run an update_by_query with a script that sets the number_of_views field to 0 on every document.
+
+
+PUT _ingest/pipeline/set_number_of_views
+{
+  "processors": [
+    {
+      "set": {
+        "field": "number_of_views1",
+        "value": 0
+      }
+    }
+  ]
+}
+
+POST _ingest/pipeline/set_number_of_views/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "name": "test"
+      }
+    }
+  ]
+}
+
+POST blogs_fixed1/_update_by_query?pipeline=set_number_of_views
+
+
+OR SIMPLER
+???? EXAM why ctx._source['number_of_views'] instead of ctx['number_of_views']
+POST blogs_fixed1/_update_by_query
+{
+  "script": {
+    "source": "ctx._source['number_of_views'] = 0",
+    "lang": "painless"
+  }
+}
+
+GET blogs_fixed1/_search
+{
+  "query": {
+    "bool": {
+      "filter": {
+        "match": {
+          "url.keyword": "/blog/elasticsearch-storage-the-true-story"
+        }
+      }
+    }
+  }
+}
+
+"_id" : "BSq-w28BAS0Qwl5ZkImw",
+
+
+
+GET logs_server*/_search
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": "2017-05-12",
+              "lt": "2017-05-13"
+            }
+          }
+        },
+        {
+          "match": {
+            "originalUrl.keyword": "/blog/elasticsearch-storage-the-true-story"
+          }
+        }
+      ]
+    }
+  }
+}
+
+GET blogs_fixed1/_search
+{
+  "query": {
+    "match": {
+      "_id": "BSq-w28BAS0Qwl5ZkImw"
+    }
+  }
+}
+
+
+ "_id" : "1i2-w28BAS0Qwl5Z07CI",
+
+POST blogs_fixed1/_update_by_query
+{
+  "query": {
+    "match": {
+      "_id": "BSq-w28BAS0Qwl5ZkImw"
+    }
+  },
+    "script": {
+        "source": "ctx._source.number_of_views1 + 12"
+    }
+}
+
+Using an _update and an inline script, add 41 to the number_of_views field of the blog above.
+
+EXAM increment
+POST blogs_fixed1/_update/BSq-w28BAS0Qwl5ZkImw
+{
+    "script" : {
+        "source": "ctx._source['number_of_views'] += 41"
+    }
+}
+
+
+GET blogs_fixed1/_search
+{
+  "query": {
+    "match": {
+      "_id": "BSq-w28BAS0Qwl5ZkImw"
+    }
+  }
+}
+
+OR simpler
+GET blogs_fixed/_doc/BSq-w28BAS0Qwl5ZkImw
+
+Store a script
+The script is stored in the cluster state with the id add_to_number_of_views
+
+The script increments number_of_views by the amount of the value in a parameter named new_views
+
+POST _scripts/add_to_number_of_views
+{
+  "script": {
+    "lang": "painless",
+    "source": "ctx._source['number_of_views'] += params['new_views']"
+  }
+}
+
+
+GET logs_server*/_search
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": "2017-05-13",
+              "lt": "2017-05-14"
+            }
+          }
+        },
+        {
+          "match": {
+            "originalUrl.keyword": "/blog/elasticsearch-storage-the-true-story"
+          }
+        }
+      ]
+    }
+  }
+}
+
+""
+
+GET blogs_fixed1/_search
+{
+  "_source": "title", 
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "content": "elasticsearch storage the true story"
+          }
+        },
+        {
+          "match_phrase": {
+            "title": "ElasticSearch storage"
+          }
+        }
+      ]
+    }
+  }
+}
+
+GET blogs_fixed1/_doc/BSq-w28BAS0Qwl5ZkImw
+
+POST blogs_fixed1/_update/BSq-w28BAS0Qwl5ZkImw
+{
+  "script": {
+    "id": "add_to_number_of_views",
+    "params": {
+      "new_views": 11
+    }
+  }
+}
+
+sets the field number_of_views to a random integer between 0 and 10,000. You will use this script in an ingest pipeline so make sure to use the syntax accordingly.
+
+POST _scripts/add_random_number_of_views
+{
+  "script": {
+    "lang": "painless",
+    "source": """
+      var num = new Random()
+      ctx._source['number_of_views'] = num
+    """
+  }
+}
+
+ Create an ingest pipeline number_of_views which uses the script that you previously created.
+
+PUT _ingest/pipeline/number_of_views
+{
+    "description": "use index:my_index and type:_doc",
+    "processors": [
+      {
+        "script": {
+          "id": "add_random_number_of_views"
+        }
+      }
+    ]
+}
+
+update blogs except the one that you already updated (the url is /blog/elasticsearch-storage-the-true-story)
+
+EXAM examine when script is stored on cluster state and when a script is defined in the context of a pipeline (script processor versus stored script)
+POST blogs_fixed1/_update_by_query?pipeline=number_of_views
+{
+  "query": {
+    "bool": {
+      "must_not": {
+        "match": {
+          "originalUrl.keyword": "/blog/elasticsearch-storage-the-true-story"
+        }
+      }
+    }
+  }
+}
+
+Lab 3.1: Securing Elasticsearch
+
+GET /
+
+GET _search
+
+PUT new_index/_doc/1
+{
+  "security_test": "this will fail"
+}
+
+Lab 3.2: Development vs. Production Mode
+
+GET logs_*/_search?request_cache=false
+{
+  "size": 0,
+  "aggs": {
+    "NAME": {
+      "terms": {
+        "field": "geoip.country_name.keyword",
+        "size": 100
+      },
+      "aggs": {
+        "NAME": {
+          "terms": {
+            "field": "geoip.region_name.keyword",
+            "size": 100
+          },
+          "aggs": {
+            "NAME": {
+              "terms": {
+                "field": "geoip.city_name.keyword",
+                "size": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+Lab 3.3: Scaling Elasticsearch
+PUT temp1a
+GET _cat/shards/temp1a?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+what's the default # of shards (primary) and replicas? 1 for both
+
+more primary shards, makes indexing faster cause can distribute the shards (subsets of the documents) more broadly
+more replica shards, make querying faster and indexing slower
+more primary shards, make aggregations slower (piece back together)
+EXAM
+
+
+PUT temp3a
+{
+    "settings" : {
+        "index" : {
+            "number_of_shards" : 3, 
+            "number_of_replicas" : 0,
+            "refresh_interval": -1 
+        }
+    }
+}
+
+GET _cat/shards/temp3a?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+POST _reindex?wait_for_completion=false
+{
+  "source": {
+    "index": "logs_server*"
+  },
+  "dest": {
+    "index": "temp3a"
+  }
+}
+
+GET temp3a/_count
+
+The document count is still zero because you have disabled refreshing on temp3. Note that you actually wanted this behavior because you are doing an initial load of temp3. Because you needed to load a large amount of data at once, you disabled refresh by setting index.refresh_interval to -1 and you also disabled replicas by setting index.number_of_replicas to 0. Note that this will temporarily put your index at risk since the loss of any shard will cause data loss, but at the same time indexing will be faster since documents will be indexed only once.
+
+GET _tasks?actions=*reindex
+
+
+GET _cat/indices/temp3a?v
+
+
+EXAM
+GET _cat/templates?v
+GET _cat/nodes?v
+GET _cat/indices?v
+GET _cat
+
+
+
+PUT temp3/_settings
+{
+  "index.refresh_interval": "1s"
+}
+
+GET temp3/_count
+
+
+PUT temp3a/_settings
+{
+  "index.auto_expand_replicas": "0-all"
+}
+
+GET _cat/shards/temp3a?v
+
+
+Lab 4.1: Cluster Backup
+
+
+
+
+PUT /_snapshot/my_local_repo1
+{
+  "type": "fs",
+  "settings": {
+    "location": "/shared_folder/my_repo1"
+  }
+}
+
+Setting it to true will cause indices that do not exist to be ignored during snapshot creation. By default, when ignore_unavailable option is not set and an index is missing the snapshot request will fail.
+
+PUT /_snapshot/my_local_repo/cluster_snapshot_1
+{
+  "indices": "logs_server*",
+    "ignore_unavailable": true,
+  "include_global_state": true
+}
+
+GET _snapshot/my_local_repo/_all
+
+
+Restore the logs_server* indices using your snapshot from the previous step. Do not restore the cluster state (your current cluster state is fine). Rename the indices as they get restored to restored_logs_1, restored_logs_2 and restored_logs_3.
+
+POST /_snapshot/my_local_repo/cluster_snapshot_1/_restore
+{
+  "indices":"logs_server*",
+  "ignore_unavailable": true,
+  "include_global_state": false,
+  "rename_pattern": "logs_server(.+)",
+  "rename_replacement": "restored_logs_$1"
+}
+
+
+GET _cat/indices
+
+
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster": {
+      "routing": {
+        "allocation.awareness.attributes": "my_rack_id",
+        "allocation.awareness.force.my_rack_id.values": "rack1,rack2"
+      }
+    }
+  }
+}
+
+
+
+
+Lab 4.3: Topology Awareness
+
+GET _cat/nodes?v&s=name
+GET _cat/nodeattrs?v&s=name
+
+Are there copies of the same shard (both primary and replica shard) allocated to the same rack? SOMETIMES YES
+GET _cat/shards?h=index,shard,prirep,node&s=index,prirep
+
+
+Implement shard allocation awareness:
+PUT /_cluster/settings
+{
+  "transient": {
+    "cluster.routing.allocation.awareness.attributes": "my_rack"
+  }
+}
+
+GET _cat/shards?h=index,shard,prirep,node&s=index,prirep
+
+
+    
+
+PUT /_cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.awareness.attributes": "my_rack"
+    "cluster.routing.allocation.awareness.force.zone.values": "rack1,rack2"
+  }
+}
+
+Lab 4.4: Multi Cluster Setups
+
+
+Configure my_cluster so that it can run cross cluster searches onto my_cluster_2.
+
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster": {
+      "remote": {
+        "my_cluster_2": {
+          "seeds": [ "server6:9300" ]
+        }
+      }
+    }
+  }
+}
+
+
+Run a search on my_cluster that hits all documents in both comments indices (the comments index on my_cluster and the comments index on my_cluster_2). You should get 4 hits.
+
+GET comments,my_cluster_2:comments/_search
+
+Use curl to connect my_cluster_2 to my_cluster, so it can pull changes to my_replicated_blogs and implement cross cluster replication.
+
+
+
+PUT /my_replicated_blogs/_ccr/follow
+{
+  "remote_cluster" : "my_cluster_2",
+  "leader_index" : "blogs"
+}
+
+
+PUT /server-metrics-copy/_ccr/follow?wait_for_active_shards=1&pretty
+ { "remote_cluster" : "leader", "leader_index" : "server-metrics" }
+
+GET /my_replicated_blogs/_count
+
+POST _reindex
+{
+  "source": {
+    "index": "blogs"
+  },
+  "dest": {
+    "index": "my_replicated_blogs"
+  }
+}
+
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.remote": {
+      "germany_cluster": {
+        "seeds": [
+          "my_server:9300",
+          "64.33.90.170:9300"
+        ]
+      }
+    }
+  }
+}
+
+GET germany_cluster:blogs/_search
+{
+  "query": {
+    "match": {
+      "title": "network"
+    }
+  }
+}
+
+PUT blogs_copy/_ccr/follow
+{
+  "remote_cluster": "my_remote_cluster",
+  "leader_index": "blogs_ccr"
+}
+
+
+
+
+
+
+Configure my_cluster so that it can run cross cluster searches onto my_cluster_2.
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster": {
+      "remote": {
+        "my_cluster_2": {
+          "seeds": [
+            "server6:9300"
+          ]
+        }
+      }
+    }
+  }
+}
+
+Run a search on my_cluster that hits all documents in both comments indices (the comments index on my_cluster and the comments index on my_cluster_2). You should get 4 hits.
+
+
+
+GET comments,my_cluster_2:comments/_search
+
+
+leader index is my_replicated_blogs in my_cluster
+
+connect my_cluster_2 to my_cluster, so it can pull changes to my_replicated_blogs and implement cross cluster replication
+
+
+//// "http://server6:9200/_cluster/settings"
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster": {
+      "remote": {
+        "my_cluster": {
+          "seeds": [
+            "server1:9300", "server2:9300", "server3:9300"
+          ]
+        }
+      }
+    }
+  }
+}
+
+create a follower index called my_replicated_blogs, which references to my_cluster and its leader index my_replicated_blogs
+
+PUT /my_replicated_blogs/_ccr/follow?wait_for_active_shards=1
+{"remote_cluster":"my_cluster","leader_index":"my_replicated_blogs"}
+
+///// curl -X PUT "http://server6:9200/my_replicated_blogs/_ccr/follow?wait_for_active_shards=1" -H "Content-Type: application/json" -i -d '{"remote_cluster":"my_cluster","leader_index":"my_replicated_blogs"}
+'
+now that you have a my_replicated_blogs on both clusters, you can easily reindex your blogs into your replicated blogs index
+
+
+
+
+Lab 5.1: Controlling Shard Allocation
+
+PUT logs-2019-03
+{
+  "settings": {
+    "index.routing.allocation.require.my_temp": "hot"
+  }
+}
+
+PUT logs-2019-02/_settings
+{
+  "index.routing.allocation.require.my_temp": "warm"
+}
+
+
+PUT logs_server1/_settings
+{
+  "index.routing.allocation.require.my_temp": "warm"
+}
+
+PUT logs_server2/_settings
+{
+  "index.routing.allocation.require.my_temp": "warm"
+}
+
+PUT logs_server4/_settings
+{
+  "index.routing.allocation.require.my_temp": "hot"
+}
+
+
+GET _cat/shards/logs_server*?v&h=index,prirep,node&s=index,prirep
+
+
+Lab 5.2: Index Management
+
+
+
+PUT /logs-0000011
+{
+    "settings" : {
+        "index" : {
+            "number_of_shards" : 4, 
+            "number_of_replicas" : 1,
+            "routing.allocation.require.my_temp": "hot"
+        }
+    },
+    "aliases": {
+      "logs": {
+        "is_write_index": true
+      }
+    }
+}
+
+USE ROLLOVER API
+POST /logs/_rollover
+{
+  "conditions": {
+    "max_age": "1d",
+    "max_docs": "2",
+    "max_size": "1gb"
+  },
+  "settings": {
+    "index.number_of_shards": 4,
+    "index.number_of_replicas": 1,
+    "index.routing.allocation.require.my_temp": "hot"
+  }
+}
+
+
+
+
+
+
+PUT logs-1
+{
+  "aliases": {
+    "logs-alias": {
+      "is_write_index": true
+    }
+  }
+}
+
+
+POST logs-alias/_rollover
+{
+  "conditions": {
+    "max_age": "7d",
+    "max_docs": 1000000,
+    "max_size": "50gb"
+  }
+}
+
+
+
+PUT logs-1/_settings
+{
+  "routing": {
+    "allocation": {
+      "require": {
+        "my_tag": "my_shrink_node"
+      }
+    }
+  },
+  "blocks.write": true
+}
+
+
+POST logs-1/_shrink/logs-1-inactive
+{
+  "settings": {
+    "index.number_of_shards": 1,
+    "index.routing.allocation.require.my_tag": null,
+    "codec": "best_compression"
+  }
+}
+
+PUT /logs-000001/_settings
+{
+  "settings": {
+    "index.routing.allocation.require.my_temp": "warm", 
+    "index.blocks.write": true 
+  }
+}
+
+POST /logs-000001/_shrink/shrink-logs-000001
+{
+  "settings": {
+    "index": {
+      "number_of_shards":1,
+      "codec": "best_compression"
+    }
+  }
+}
+
+POST /shrink-logs-000001/_forcemerge?max_num_segments=1
+
+
+POST /_aliases
+{
+  "actions": [
+    {
+      "remove": {
+        "index": "logs-000001",
+        "alias": "logs"
+      }
+    },
+    {
+      "add": {
+        "index": "shrink-logs-000001",
+        "alias": "logs"
+      }
+    }
+  ]
+}
+
+
+POST logs-2/_freeze
+
+
+
+
+
+

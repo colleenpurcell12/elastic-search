@@ -1,0 +1,482 @@
+# Painless sin dolor
+
+POST _scripts/painless/_execute
+{
+  "script": {
+    "lang": "painless",
+    "source": "'Hello, World!'"
+  }
+}
+
+POST _scripts/painless/_execute
+{
+  "script": {
+    "lang": "painless",
+    "source": """
+
+      return (1+1);
+    """
+  }
+}
+
+POST _scripts/painless/_execute
+{
+  "script": {
+    "lang": "painless",
+    "source": """
+      return "Hello, " + params.name + "!";
+    """,
+    "params": {
+      "name": "Eng II students from CACI"
+    }
+  }
+}
+
+
+
+
+
+POST _scripts/painless/_execute
+{
+  "script": {
+    "lang": "painless",
+    "source": """
+      def s = 0;
+      for (int i = 0; i <= params.n; i++) {
+        s += i;
+      }
+      return s;
+    """,
+    "params": {
+      "n": 1000
+    }
+  }
+}
+
+
+
+
+
+
+
+
+POST _scripts/painless/_execute
+{
+  "script": {
+    "lang": "painless",
+    "source": """
+      double areaCircle(double r) {
+        return Math.PI * r * r;
+      }
+      
+      return areaCircle(params.r)
+    """,
+    "params": {
+      "r": 2
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+POST _scripts/painless/_execute
+{
+  "script": {
+    "lang": "painless",
+    "source": """
+      int fact(int n) {
+        if (n == 0) return 1;
+        else return n * fact(n-1);
+      }
+      
+      return fact(params.n);
+    """,
+    "params": {
+      "n": 5  
+    }
+  }
+}
+
+
+
+
+
+
+
+
+# scripting on an ES index
+
+DELETE index1
+
+PUT index1/_doc/1
+{
+  "a": [1, 2, 3]  
+}
+
+PUT index1/_doc/2
+{
+  "a": [3, -5, 7]
+}
+
+
+
+
+
+
+GET index1/_doc/1
+GET index1/_mapping
+
+# modify fields
+POST index1/_update/1
+{
+  "script": {
+    "lang": "painless",
+    "source": """
+      ctx._source.a.add(11)
+    """
+  }
+}
+
+POST index1/_update/1
+{
+  "script": {
+    "lang": "painless",
+    "source": """
+      def a = ctx._source.a;
+      for (int i = 0; i < a.length; i++) {
+        a[i] *= 2;
+      }
+    """,
+    "params": {
+      
+    }
+  }
+}
+
+# add fields
+POST index1/_update_by_query
+{
+  "script": {
+    "lang": "painless",
+    "source": """
+      ctx._source.b = [];
+    """
+  }
+  
+}
+
+GET index1/_search
+GET index1/_mapping
+
+# remove fields
+
+POST index1/_update_by_query
+{
+  "script": {
+    "lang": "painless",
+    "source": """
+      ctx._source.remove("b");
+    """
+  }
+}
+
+
+
+
+
+# use case: change the score of a search
+# my_blogs contains a set of blog documents
+# 1. simulate random views
+
+POST blogs/_update_by_query
+{
+  "script": {
+    "lang": "painless",
+    "source": """
+      ctx._source.number_of_views = (int)(Math.random() * 1000 + 1);
+    """
+  }
+}
+
+
+
+
+GET blogs/_search
+{
+  "_source": ["title", "author", "number_of_views", "category"]
+}
+
+GET blogs/_search
+{
+  "_source": ["title", "author", "category", "number_of_views"], 
+  "query": {
+    "match": {
+      "title": "elastic stack"
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "_source": ["title", "author", "category", "number_of_views"], 
+  "query": {
+    "script_score": {
+      "query": {
+        "match": {
+          "title": "elastic stack"
+        }
+      },
+      "script": {
+        "lang": "painless",
+        "source": """
+          def newScore = _score * Math.log(doc['number_of_views'].value + 1);
+          return newScore;
+        """
+      }
+    }
+  }
+}
+
+# use case: generate keys for a terms aggregation
+
+PUT _ingest/pipeline/calc_content_length
+{
+  "processors": [
+    {
+      "script": {
+        "lang": "painless",
+        "source": """
+          ctx.content_length = ctx.content.length();
+        """
+      }
+    }
+  ]
+}
+
+POST _ingest/pipeline/calc_content_length/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "content": "This is a sample blog"
+      }
+    },
+    {
+      "_source": {
+        "content": ""
+      }
+    }
+  ]
+}
+
+GET blogs/_search
+{
+  "_source": ["title", "content_length","content"]
+}
+
+POST blogs/_update_by_query?pipeline=calc_content_length
+
+GET blogs/_search
+{
+  "size": 0, 
+  "aggs": {
+    "by_day_of_week": {
+      "terms": {
+        "script": {
+          "lang": "painless",
+          "source": """
+            def dayOfWeek = doc['publish_date'].value.dayOfWeekEnum;
+            return dayOfWeek.value + "-" + dayOfWeek;
+          """
+        }, 
+        "size": 7,
+        "order": {
+          "_key": "asc"
+        }
+      }
+    }
+  }
+}
+
+# use case: fix the type of a field
+
+GET logs_server1/_mapping
+
+PUT logs_server*/_mapping
+{
+  "properties": {
+    "location": {
+      "type": "geo_point"
+    }
+  }
+}
+
+PUT _ingest/pipeline/fix_location
+{
+  "processors": [
+    {
+      "script": {
+        "lang": "painless",
+        "source": """
+          if (ctx.geoip != null)
+            if (ctx.geoip.location != null)
+              ctx.location = [ctx.geoip.location.lon, ctx.geoip.location.lat];
+        """
+      }
+    }
+  ]
+}
+
+POST _ingest/pipeline/fix_location/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "geoip": {
+          "location": {
+            "lat": 20,
+            "lon": -10
+          }
+        }
+      }
+    }
+  ]
+}
+
+POST logs_server1/_update_by_query?pipeline=fix_location
+
+GET logs_server1/_mapping
+
+GET logs_server1/_search
+{
+  "size": 0,
+  "aggs": {
+    "by_distance": {
+      "geo_distance": {
+        "field": "location",
+        "unit": "mi", 
+        "origin": {
+          "lat": 37.386051,
+          "lon": -122.083855
+        },
+        "ranges": [
+          {
+            "from": 0,
+            "to": 100
+          },
+          {
+            "from": 100,
+            "to": 300
+          },
+          {
+            "from": 300,
+            "to": 1000
+          },
+          {
+            "from": 1000,
+            "to": 20000
+          }
+        ]
+      },
+      "aggs": {
+        "by_city": {
+          "terms": {
+            "field": "geoip.city_name.keyword",
+            "size": 10
+          }
+        }
+      }
+    }
+  }
+}
+
+PUT _ingest/pipeline/fix_locales
+{
+  "processors": [
+    {
+      "script": {
+        "lang": "painless",
+        "source": """
+          if ("".equals(ctx.locales)) {
+            ctx.locales = "en-en"
+          }
+      """
+      }
+    },
+    {
+      "split": {
+        "field": "locales",
+        "separator": ","
+      }
+    }
+  ]
+}
+
+POST _ingest/pipeline/fix_locales/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "locales": ""
+      }
+    },
+    {
+      "_source": {aria
+        "locales": "en-en"
+      }
+    },
+    {
+      "_source": {
+        "locales": "en-en,fr-fr,es-es"
+      }
+    }
+  ]
+}
+
+
+POST _reindex
+{
+  "source": {
+    "index": "blogs"
+  },
+  "dest": {
+    "index": "my_blogs",
+    "pipeline": "fix_locales"
+  }
+}
+
+GET my_blogs/_search
+{
+  "size": 0, 
+  "aggs": {
+    "locales-buckets": {
+      "terms": {
+        "field": "locales.keyword",
+        "size": 10
+      }
+    }
+  }
+}
+
+GET my_blogs/_search
+{
+  "_source": ["title", "author", "locales"], 
+  "query": {
+    "bool": {
+      "filter": {
+        "script": {
+          "script": {
+            "source": "doc['locales.keyword'].size() > 1"
+          }
+        }
+      }
+    }
+  }
+}
+

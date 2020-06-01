@@ -1,0 +1,1094 @@
+GET /
+
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+GET _search
+
+GET my_blogs/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+
+GET my_blogs
+
+PUT my_blogs1/_doc/1
+{
+  "id": 1,
+  "title": "Better query execution",
+  "category": "Engineering",
+  "date": "July 15, 2015",
+  "author":{
+    "first_name": "Adrien",
+    "last_name": "Grand",
+    "company": "Elastic"
+  }
+}
+
+PUT my_blogs/_doc/1
+{
+  "id": 1,
+  "title": "Better query execution",
+  "category": "Engineering",
+  "date": "July 15, 2015",
+  "author":{
+    "first_name": "Adrien",
+    "last_name": "Grand",
+    "company": "Elastic"
+  }
+
+}
+
+PUT my_blogs1/_doc/2
+{
+  "id": "2",
+  "title": "The Story of Sense",
+  "date":"May 28, 2015",
+  "author":{
+    "first_name": "Boaz",
+    "last_name": "Leskes"
+  }
+}
+
+
+POST my_blogs1/_doc/
+{
+  "id": "57",
+  "title": "Phrase Queries: a world without Stopwords",
+  "date":"March 7, 2016",
+  "category": "Engineering",
+  "author":{
+    "first_name": "Gabriel",
+    "last_name": "Moskovicz"
+  }
+}
+
+GET my_blogs1/_search
+
+GET my_blogs/_doc/2
+
+
+DELETE my_blogs/_doc/1
+
+
+PUT my_blogs/_bulk
+{"update" : {"_id":2}}
+{"doc": {"author.company":"Elastic", "category": "Engineering"}}
+
+PUT my_blogs/_doc/3
+{
+  "id": "2",
+  "title": "The Story of Sense",
+  "date":"May 28, 2015",
+  "author":{
+    "first_name": "Boaz",
+    "last_name": "Leskes"
+  }
+}
+
+POST my_blogs/_bulk
+{"update": {"_id": 2}}
+{"doc": {"category": "Engineering", "author.company":"Elastic"}}
+{"index": {"_id": 3}}
+{"title":"Using Elastic Graph","category":"Engineering","date":"May 25, 2016","author":{"first_name":"Mark","last_name":"Harwood","company":"Elastic"}}
+
+
+GET my_blogs/_doc/3
+
+GET _mget
+{
+  "docs" : [
+    {
+      "_index" : "my_blogs",
+      "_id" : 2
+    },
+    {
+      "_index" : "my_blogs",
+      "_id" : "3"
+    }
+  ]
+}
+
+GET blogs/_search
+GET blogs/_count
+
+
+GET logs_server1,logs_server2,logs_server3/_count
+
+GET logs_server*/_count
+
+
+Lab 2.1: Relevance
+
+
+GET logs_server*/_count
+
+
+
+GET blogs/_search
+{
+  "size": 100,
+  "query":{ "match_all": {}}
+
+  
+}
+
+
+GET blogs/_search
+{
+  "query":{ 
+    "match": { 
+      "title":"elastic"
+    }
+  }
+}
+
+
+GET blogs/_search
+{
+  "query":{ 
+    "match":{ 
+       "title": {
+         "query": "elastic stack",
+      "operator": "and"
+         
+       }
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+    "must": [
+      {"match": {"content": "optimizations"}}
+      {"match": {"content": "performance"}}
+      {"match": {"content": "improvements"}}
+    ],
+    "should": [
+      {"match": {"title": "stack"}},
+      {"match_phrase": {"author": "shay banon"}},
+      {"range":{"publish_date":{"lt":"2017-01-01"}}}
+    ],
+    "minimum_should_match": 2
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "bool": {
+            "should": [
+              {"match": {"content": "optimizations"}},
+              {"match": {"content": "performance"}},
+              {"match": {"content": "improvements"}}
+            ],
+            "minimum_should_match": 2,
+          }
+        }
+      ],
+      "must_not": [{
+        "match": {"title": "release releases released"}
+      }],
+      "should": [
+        {"match": {"title": "elasticsearch"}}
+      ],
+    }
+  }
+}
+
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "bool": {
+            "should": [
+              {"match": {"content": "performance"}},
+              {"match": {"content": "optimizations"}},
+              {"match": {"content": "improvements"}}
+            ],
+            "minimum_should_match": 2
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "match": {"title": "release releases released"}
+        }
+      ],
+      "should": [
+        {
+          "match": {"title": "elasticsearch"}
+        }
+      ]
+    }
+  }
+}
+
+title.keyword News
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": ["title", "content"]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "bool": {
+           "should": [
+             {
+              "match": {
+                "category.keyword": "News"
+              }
+            },
+            {"match": {
+              "category.keyword": "Culture"
+            }}
+          ]
+        }
+        }
+        ]
+        
+      }
+      
+    }
+  }
+}
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": [
+              "title",
+              "content"
+            ]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "terms": {
+            "category.keyword": [
+              "News",
+              "Culture"
+            ]
+          }
+          
+        },
+        {
+          "range": {
+            "publish_date": {
+              "gte": "2017-1-01",
+              "lt": "2018-01-01"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+
+
+GET blogs/_search
+{
+  "size": 3,
+  "from": 9,
+  "query": {
+    "match_phrase": {
+      "content": {
+        "query" : "elastic stack"
+      }
+    }
+  },
+  "sort": [
+    {
+      "author.keyword": {
+        "order": "asc"
+      }
+    },
+    {
+      "publish_date": {
+        "order": "desc"
+      }
+    }
+  ],
+  "highlight": {
+    "fields": {
+      "content": {}
+    },
+    "pre_tags": ["<mark>"],
+    "post_tags": ["</mark>"]
+      
+    }
+  }
+}
+
+
+
+
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "fastest_request_time": {
+      "min": {
+        "field": "runtime_ms"
+      }
+    }
+  }
+}
+
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "slowest_request_time": {
+      "stats": {
+        "field": "runtime_ms"
+      }
+    }
+  }
+}
+
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "slowest_request_time": {
+      "stats": {
+        "field": "runtime_ms"
+      }
+    }
+  }
+}
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "runtime_median_and_95": {
+      "percentiles": {
+        "field": "runtime_ms",
+        "percents": [
+          50,
+          95
+        ]
+      }
+    }
+  }
+}
+
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "query":{ 
+    "match": { 
+      "originalUrl":"elastic"
+    }
+  },
+
+  "aggs": {
+    "toal_requests" : { 
+      "cardinality" : { "field" : "originalUrl.keyword" } 
+      
+    }
+  
+  }
+}
+
+
+How many requests are there for each of the 6 status_code values?
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_code_requests": {
+      "terms": {
+        "field": "status_code"
+      }
+    }
+  }
+}
+
+EXAM PREP: A terms aggregation is sorted by doc_count by default. Modify your previous search so that its terms are sorted alphabetically.
+
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_code_requests": {
+      "terms": {
+        "field": "status_code",
+        "order": {"_key": "asc"}
+      }
+    }
+  }
+}
+
+GET blogs/_search
+{ 
+  "size": 1,
+  "query": {
+    "match_all": {}
+  }
+}
+
+GET blogs/_search
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "must": {
+        "multi_match": {
+          "query": "open source",
+          "fields": [
+            "title^2",
+            "content"
+          ],
+          "type": "phrase"
+        }
+      }
+    }
+  },
+ "aggs": {
+    "term_aggregation": {
+      "terms": {
+        "field": "author.keyword",
+        "size":5
+      }
+    }
+  },
+  "highlight": {
+    "fields": {
+      "title": {},
+      "content": {}
+    },
+    "require_field_match": false,
+    "pre_tags": [
+      "<mark>"
+    ],
+    "post_tags": [
+      "</mark>"
+    ]
+  }
+}
+
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "response_time_histogram": {
+      "histogram": {
+        "field": "response_size",
+        "interval": 1000,
+        "min_doc_count": 1000
+      }
+    }
+  }
+}
+
+
+GET logs_server*/_search
+{ 
+  "size": 1,
+  "query": {
+    "match_all": {}
+  }
+}
+
+GET my_blogs/_search
+{ 
+  "size": 1,
+  "query": {
+    "match_all": {}
+  }
+}
+
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "logs_by_week": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "calendar_interval": "week"
+      },
+      "aggs": {
+       "top_status_codes": {
+          "terms": {
+            "field": "status_code"
+          }
+        }
+      }
+    }
+  }
+}
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_code_buckets": {
+      "terms": {
+        "field": "status_code"
+      },
+      "aggs":{
+        "runtime" : {
+          "percentiles" : {
+            "field" : "runtime_ms",
+            "percents" : [50]
+          }
+        }
+      }
+    }
+  }
+}
+
+
+GET logs_server*/_search
+{ 
+  "size": 1,
+  "query": {
+    "match_all": {}
+  }
+}
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_20_cities": {
+      "terms": {
+        "field": "geoip.city_name.keyword",
+        "size": 20
+      },
+      "aggs":{
+        "top_3_url" : {
+          "terms": {
+            "field": "originalUrl.keyword",
+            "size": 3
+          }
+        }
+      }
+    }
+  }
+}
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_20_cities": {
+      "terms": {
+        "field": "geoip.city_name.keyword",
+        "size": 20
+      },
+      "aggregations":{
+        "top_3_significant_urls" : {
+          "significant_terms" : { 
+            "field" : "originalUrl.keyword",
+            "size": 3
+          }
+        }
+      }
+    }
+  }
+}
+
+
+GET logs_server*/_search
+{
+  "query": {
+    "match": {
+      "content": "elasticsearch siem"
+    }
+  }
+}
+
+
+GET logs_server*/_search
+{
+  "query": {"match":{"content":"elasticsearch siem" }}
+}
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "query": {match:{"content":"elasticsearch siem" }},
+  "aggs": {
+    "top_20_cities": {
+      "terms": {
+        "field": "geoip.city_name.keyword",
+        "size": 20
+      },
+      "aggregations": {
+        "top_3_significant_urls": {
+          "significant_terms": {
+            "field": "originalUrl.keyword",
+            "size": 3
+          }
+        }
+      }
+    }
+  }
+}
+
+
+GET blogs/_search
+{ 
+  "size": 1,
+  "query": {
+    "match_all": {}
+  }
+}
+
+GET blogs/_search
+{
+  "size": 0,
+  "query": {
+    "match": {
+      "content": "elasticsearch siem"
+    }
+  },
+  "aggs": {
+    "top_5_categories": {
+      "terms": {
+        "field": "category.keyword",
+        "size": 5
+      },
+      "aggs":{
+        "top_3_blogs" : {
+          "top_hits": { 
+            "_source": ["title"],
+            "size": 3
+          }
+        }
+      }
+    }
+  }
+}
+
+
+auto index:
+PUT tmp_index/_doc/1
+{
+  "@timestamp": "2019-07-08T03:00:00.000Z",
+  "ip" : "105.32.126.44",
+  "bytes" : 8261,
+  "coordinates" : {
+    "lat" : 30.42769722,
+    "lon" : -87.70082
+  }
+}
+
+View the mappings of tmp_index that were dynamically created.
+GET tmp_index/_mapping
+
+
+coordinates could be better mapped as geo_point instead of float and ip could be better mapped as ip instead of text
+
+
+the ip field is unique because the /16 is a range you are searching for, a nuance that text fields dont account for
+GET tmp_index/_search
+{
+  "query": {
+    "term": {
+      "ip": "105.32.0.0/16"
+    }
+  }
+}
+
+PUT my_logs
+{
+  "mappings": {
+    "properties": {
+      "@timestamp": {"type" : "date"},
+      "ip" : {"type": "ip"},
+      "bytes" : {"type" : "long"},
+      "coordinates" : {"type" : "geo_point"}
+    }
+  }
+}
+
+
+POST my_logs/_doc
+{
+  "ip" : "105.32.126.44"
+}
+
+
+GET my_logs/_mapping
+
+GET my_logs/_search
+{
+  "query": {
+    "term": {
+      "ip": "105.32.0.0/16"
+    }
+  }
+}
+
+GET tmp_index/_search
+{
+  "query": {
+    "geo_distance": {
+      "distance": "200km",
+      "coordinates": {
+        "lat": 30,
+        "lon": -87
+      }
+    }
+  }
+}
+
+
+PUT my_logs/_mapping
+{
+    "properties": {
+      "coordinates" : {"type" : "geo_point"}
+    }
+  
+}
+
+
+PUT my_logs/_doc/1
+{
+  "@timestamp": "2019-07-08T03:00:00.000Z",
+  "ip" : "105.32.126.44",
+  "bytes" : 8261,
+  "coordinates" : {
+    "lat" : 30.42769722,
+    "lon" : -87.70082
+  }
+}
+
+To validate that the coordinates field is now mapped correctly, run the previous geo_distance query again, but now against the new index:
+
+
+
+GET my_logs/_search
+{
+  "query": {
+    "geo_distance": {
+      "distance": "200km",
+      "coordinates": {
+        "lat": 30,
+        "lon": -87
+      }
+    }
+  }
+}
+
+
+Lab 4.3
+
+what if you tried to do the following without keyword? it would fail.
+because keyword fields have doc values enabled
+
+GET tmp_index/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_countries": {
+      "terms": {
+        "field": "country_name.keyword",
+        "size": 10
+      }
+    }
+  }
+}
+
+initialize a new index
+POST tmp_index/_doc/4
+{
+  "region_name": "Hertfordshire",
+  "city_name": "Hatfield"
+}
+
+update the automatically generated mapping
+PUT tmp_index/_mapping
+{
+  "properties": {
+    "region_name": {
+      "type": "keyword",
+      "index": false
+    },
+    "city_name": {
+      "type": "keyword",
+      "doc_values": false
+    }
+  }
+}
+
+On which field would querying fail? region name
+On which field would aggregation fail? city name
+
+Create a new index logs_fixed with a mapping in which the log and agent objects have been completely disabled.
+PUT logs_fixed
+{
+  "mapping": {
+    "properties": {
+      "log": {
+        "enabled": false
+      },
+      "agent": {
+        "enabled": false
+      }
+    }
+  }
+}
+
+Lab 4.4
+
+PUT logs_fixed
+{
+  "mapping": {
+    "dynamic_templates": [
+      {
+        "my_string_fields": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "keyword"
+          }
+        }
+      }
+    ]
+  }
+}
+
+POST _reindex?wait_for_completion=false
+{
+  "source": {
+    "index": "logs_server1"
+  },
+  "dest": {
+    "index": "logs_fixed"
+  }
+}
+
+GET logs_fixed/_mapping
+
+GET _cat/indices?v
+
+PUT surveys
+{
+  "mappings": {
+    "properties": {
+      "all_feedback": {
+        "type": "text"
+      },
+      "instructor_feedback": {
+        "type": "text",
+        "copy_to": "all_feedback"
+      },
+      "labs_feedback": {
+        "type": "text",
+        "copy_to": "all_feedback"
+      },
+      "course_rating": {
+        "type": "integer",
+        "null_value": 1,
+        "coerce": false
+      }
+    }
+  }
+}
+
+PUT surveys/_doc/1
+{
+  "instructor_feedback": "She was great!",
+  "labs_feedback": "Labs were hard!"
+}
+
+GET surveys/_search
+{
+  "query": {
+    "match": {
+      "all_feedback": "great"
+    }
+  }
+}
+
+GET surveys/_search
+{
+  "query": {
+    "range": {
+      "course_rating":{
+        "gte": 1
+      }
+    }
+  }
+}
+
+PUT surveys/_doc/2
+{
+  "course_rating": null
+}
+
+PUT surveys/_doc/3
+{
+  "course_rating": "8"
+}
+
+Lab 5.1
+GET _cluster/state
+
+GET _cat/nodes?v
+
+
+Lab 5.2
+GET /_cluster/state?filter_path=metadata.cluster_coordination.last_committed_config
+
+
+GET _cat/nodes?s=name
+
+Lab 5.3
+GET _cat/indices?v
+
+GET _cat/nodes?s=name
+
+GET _cat/shards?v
+GET _cat/shards/logs_server2?v
+
+GET _cluster/health
+
+create a new index, config shards
+PUT test1
+{
+  "settings": {
+    "number_of_shards": 4,
+    "number_of_replicas": 2
+  }
+}
+
+GET _cat/shards/test1?v
+It's yellow since we ony have 2 nodes, and we cant create all the 2 replica shards across one node per shard 
+GET _cat/shards/test1?v&s=shard,prirep
+
+this is how you edit an index that's already created
+PUT test1/_settings
+{
+  "settings": {
+    "number_of_replicas": 1
+  }
+}
+
+DELETE test1
+
+
+Lab 5.4
+
+PUT my_refresh_test
+{
+  "settings":{
+    "index.refresh_interval": "1h"
+  }
+}
+
+
+PUT my_refresh_test/_bulk
+{ "index" : { "_id" : "1"}}
+{ "level" : "test"}
+{ "index" : { "_id" : "2"}}
+{ "level" : "test"}
+{ "index" : { "_id" : "3"}}
+{ "level" : "test"}
+
+
+GET my_refresh_test/_search
+
+zero documents are returned cause refresh window is 1h
+
+GET my_refresh_test/_doc/1
+this api is realtime, data retrieval is diff
+
+force refresh
+POST my_refresh_test/_refresh
+
+GET my_refresh_test/_doc/1
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+PUT my_refresh_test/_doc/4?refresh=true
+{ "level" : "test"}
+
+GET my_refresh_test/_search
+
+
+
+PUT my_refresh_test/_settings
+{
+    "index.refresh_interval": "10s"
+}
+
+PUT my_refresh_test/_doc/5
+{ "level" : "test"}
+
+GET my_refresh_test/_search
+
+PUT my_refresh_test/_doc/7?refresh=wait_for
+{ "level" : "test"}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

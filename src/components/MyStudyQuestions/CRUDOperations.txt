@@ -1,0 +1,106 @@
+Section: CRUD OPERATIONS
+Create an index that have a property full_name of type keyword, all other string fields are mapped to text and keyword, and # of shards and replicas are both 1
+
+PUT test_index
+{
+  "mappings": {
+    "properties": {
+      "full_name": {
+        "type": "keyword"
+      }
+    },
+    "dynamic_templates": [
+      {
+        "strings": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "settings": {
+    "number_of_replicas": 1,
+    "number_of_shards": 1
+  }
+}
+
+Verify the index was set up as expected
+GET test_index
+
+Now index this document into the index with an id of 1 to see how it maps the fields provided
+{
+  "first_name": "Miles",
+  "last_name": "Evans"
+}
+
+Answer
+PUT test_index/_doc/1
+{
+  "first_name": "Miles",
+  "last_name": "Evans"
+}
+
+Verify the impact on the index's mapping is as expected
+
+Answer: 
+GET test_index
+the new fields were mapped as both text and keyword as specified by the dynamic mapping template
+
+Now change the last_name to Jones
+
+Answer: use an _update request with doc: request body
+POST test_index/_update/1
+{
+  "doc": {
+    "last_name": "Jones"
+  }
+}
+
+Verify document has been updated:
+GET test_index/_source/1
+*Tip: use _source instead of _doc to exclude metadata
+
+Add this document
+{
+  "first": "Michelle",
+  "last": "Smith"
+}
+
+Answer
+PUT test_index/_doc/2
+{
+  "first_name": "Michelle",
+  "last": "Smith"
+}
+
+Now delete the 'last' field
+
+POST test_index/_update/2
+{
+  "script": {
+    "source": "ctx._source.remove('last')",
+    "lang": "painless"
+  }
+}
+
+GET test_index/_doc/2
+
+See how more fields were created
+GET test_index
+
+And delete doc 1
+
+Answer
+DELETE test_index/_doc/1
+
+Verify it's gone
+
+Answer
+GET test_index/_doc/1

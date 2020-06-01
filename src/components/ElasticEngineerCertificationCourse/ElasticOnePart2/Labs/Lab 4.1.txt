@@ -1,0 +1,24 @@
+Lab 4.1.txt
+EXAM PREP: Create a new index my_logs with the ip field mapped explicitly as type ip.
+
+PUT my_logs
+{
+  "mappings": {
+    "properties": {
+      "ip": {
+        "type": "ip"
+      }
+    }
+  }
+}
+
+Add a new field coordinates to the mapping of the my_logs index, and map the field as type geo_point.
+
+PUT my_logs/_mapping
+{
+  "properties": {
+    "coordinates": {
+      "type": "geo_point"
+    }
+  }
+}

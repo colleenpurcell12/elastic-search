@@ -1,0 +1,65 @@
+Lab 3.3: Scaling Elasticsearch
+
+
+PUT temp1
+GET _cat/shards/temp1?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+
+PUT /temp3
+{
+    "settings" : {
+        "index" : {
+            "number_of_shards" : 3, 
+            "number_of_replicas" : 0,
+            "refresh_interval": -1
+        }
+    }
+}
+
+
+PUT temp3
+{
+  "settings": {
+    "index.refresh_interval": -1,
+    "index.number_of_replicas": 0,
+    "index.number_of_shards": 3
+  }
+}
+
+
+GET _cat/shards/temp3?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+
+POST _reindex?wait_for_completion=false
+{
+  "source": {
+    "index": "logs_server*"
+  },
+  "dest": {
+    "index": "temp3"
+  }
+}
+
+GET temp3/_count
+GET _tasks?actions=*reindex
+
+GET _cat/indices/temp3?v
+
+
+PUT temp3/_settings
+{
+  "index.refresh_interval": "1s"
+}
+
+GET temp3/_count
+
+
+PUT temp3/_settings
+{
+  "index.auto_expand_replicas": "0-all"
+}
+
+GET _cat/shards/temp3?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+
+

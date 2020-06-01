@@ -1,0 +1,31 @@
+
+ALL EXAM PREP Module 5 Questions
+
+EXAM PREP: Then, configure the node settings in the appropriate config files (either elasticsearch.yml or jvm.options) to have the following:
+
+it joins my_cluster
+
+the name of the node is node3
+
+binds and publishes both the transport and HTTP protocols to the site-local address
+
+set the min and max heap size to 512m
+
+
+cluster.name: my_cluster
+node.name: node3
+network.host = _site_
+
+jvm:
+-Xms512m 
+-Xmx512m
+
+EXAM PREP: Next, update the node settings to have the following:
+
+node1 is the only initial master node in the cluster
+
+it discovers the cluster via server1, server2, or server3
+
+
+discovery.seed_hosts: ["server1", "server2", or "server3"]
+cluster.initial_master_nodes: ["node1"]

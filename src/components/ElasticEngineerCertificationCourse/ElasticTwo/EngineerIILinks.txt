@@ -1,0 +1,23 @@
+# Engineer II Links and stuff
+
+[Jens Demo Scripts](https://1drv.ms/u/s!Av2yE48egVK3hMcnEOT5EmSSGiat2w?e=baBT6f)
+
+
+
+# Module 1
+[Joins - I am your father](https://blog.mimacom.com/parent-child-elasticsearch/)
+[ECS](https://www.elastic.co/guide/en/ecs/current/index.html)
+[How to keep synchronized with RDMS](https://www.elastic.co/blog/how-to-keep-elasticsearch-synchronized-with-a-relational-database-using-logstash)
+[Using ES as a RDMS](https://markusholtermann.eu/2014/08/using-elasicsearch-as-relational-data-storage/)
+[Conventions](https://www.elastic.co/guide/en/ecs/current/ecs-conventions.html)
+
+# Module 2
+
+# Module 3
+
+# Module 4
+
+# Module 5
+
+# Module 6
+

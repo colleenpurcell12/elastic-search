@@ -1,0 +1,172 @@
+img {
+  display: inline-block;
+  margin: 15px;
+  width: 90%;
+}
+
+textarea {
+  display: block;
+  margin-top: 10px;
+  width: 96%;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  font-size: 12px;
+}
+
+h1, h2, h3 {
+  margin-bottom: 0;
+}
+
+.objectives-container {
+  width: 50%;
+  text-align: left;
+  margin: 0 auto;
+}
+
+li.exam-objective {
+  /* list-style: none; */
+  margin: 15px 3px 0 0;
+}
+
+.exam-objective-container {
+  width: 50%;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+}
+
+.relevant-section {
+  display: inline-block;
+  font-style: italic;
+}
+
+.relevant-section--hide {
+  display: none;
+}
+
+.example-section {
+  
+}
+.example-section--hide {
+  display: none;
+}
+
+
+.toggleShowObjectivesButton {
+  border-radius: 2px;
+  text-decoration: none;
+  color: white;
+  padding: 4px 10px;
+  margin-top: 15px;
+  font-weight: 600;
+  font-size: 13px;
+  background-color: #2f7e96;
+  border: none;
+}
+
+.first-section {
+  color: #ba0028;
+}
+.second-section {
+  color: #008002;
+}
+
+.last-section {
+  color: #5100b5;
+}
+
+.topic-links-container { 
+  width: 90%;
+  display: flex;
+  justify-content: center;
+  font-size: 14px;
+  margin-bottom: 10px;
+  max-width: 900px;
+  margin: 10px auto;
+}
+.topic-links-container-four-column { 
+  width: 90%;
+  max-width: 1200px;
+}
+
+.elastic-topics {
+  margin: 0 17px;
+  padding: 0;
+  list-style-type: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.elastic-topic-header {
+  margin-bottom: 10px;
+  height: 2em;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.elastic-topics li {
+  opacity: .9;
+  margin: 4px 3px;
+  font-family:'Roboto',sans-serif;
+  font-weight: 700;
+  border-radius: 2px;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.elastic-topics li a {
+  text-decoration: none;
+  color:#479bba;
+  background-color: #e0f1ff;
+  padding: 3px 8px;
+  line-height: 1.5em;
+  border-radius: 2px;
+}
+
+.elastic-topics li a.active,
+.elastic-topics li a:hover{
+  background-color: #5ca9cc;
+  color: white;
+}
+
+.study-info {
+  text-align: left;
+}
+
+.exam-topic {
+  width: 90%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 8px 20px;
+  border: 1px solid black;
+}
+
+.pair {
+  padding: 5px 0;
+}
+
+.question {
+  font-weight: 600;
+  font-size: 1.2em;
+  padding-top: .6em;
+  padding-bottom: .3em;
+}
+
+.answer {
+  margin-left: 1em;
+}
+
+.image { 
+  width: 90%;
+  margin: 15px
+}
+
+.image-border {
+  border: 2px black solid;
+}
+
+.other-requirements {
+  width: 50%;
+  text-align: left;
+  margin: 0 auto;
+}

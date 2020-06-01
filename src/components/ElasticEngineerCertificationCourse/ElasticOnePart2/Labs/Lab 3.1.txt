@@ -1,0 +1,133 @@
+
+One way to find the log with fastest run time (sort)
+GET logs_server*/_search
+{
+  "size": 2,
+  "_source": {
+    "includes": "runtime_ms"
+  },
+  "query": {
+    "match_all": {}
+  },
+  "sort": [
+    {
+      "runtime_ms": {
+        "order": "asc"
+      }
+    }
+  ]
+}
+"runtime_ms" : 59756
+
+Fastest
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "fastest_runtime": {
+      "min": {
+        "field": "runtime_ms"
+      }
+    }
+  }
+}
+  
+SLOWEST  
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "slowest_request_time": {
+      "max": {
+        "field": "runtime_ms"
+      }
+    }
+  }
+}
+  
+STATS MIN MAX and AVG
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "speed_stats": {
+      "stats": {
+        "field": "runtime_ms"
+      }
+    }
+  }
+}
+
+whats the speed that 95% of logs are faster than?
+GET logs_server*/_search
+{
+    "size": 0,
+    "aggs" : {
+        "runtime_ms_outlier" : {
+            "percentiles" : {
+                "field" : "runtime_ms",
+                "percents" : [95] 
+            }
+        }
+    }
+}
+
+
+INTERPRET THE FOLLOWING 
+95% are below 684 and 96% take less than 1256 seconds
+values" : {
+  "95.0" : 684.8804112035199,
+  "96.0" : 1256.9480499052197
+}
+      
+GET logs_server*/_search
+{
+    "size": 0,
+    "aggs" : {
+        "runtime_ms_outlier" : {
+            "percentiles" : {
+                "field" : "runtime_ms",
+                "percents" : [50,90, 93,94,95] 
+            }
+        }
+    }
+}
+
+double check the percentile of a value, to answer--what percent of logs have  a runtime below 500 ms?
+GET logs_server*/_search
+{
+    "size": 0,
+    "aggs" : {
+        "runtime_ms_outlier" : {
+            "percentile_ranks" : {
+                "field" : "runtime_ms", 
+                "values" : [500]
+            }
+        }
+    }
+}
+
+
+how many unqiue originalUrls?
+GET logs_server*/_search
+{ "size": 0,
+    "aggs" : {
+        "type_count" : {
+            "cardinality" : {
+                "field" : "originalUrl.keyword"
+            }
+        }
+    }
+}
+
+how many UNIQUE urls?
+GET logs_server*/_search
+{ "size": 0,
+    "aggs" : {
+        "type_count" : {
+            "cardinality" : {
+                "field" : "originalUrl.keyword"
+            }
+        }
+    }
+}

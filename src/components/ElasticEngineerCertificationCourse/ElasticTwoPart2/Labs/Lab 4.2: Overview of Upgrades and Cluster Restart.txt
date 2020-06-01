@@ -1,0 +1,8 @@
+Lab 4.2: Overview of Upgrades and Cluster Restart
+
+
+POST _analyze
+{
+    "tokenizer": "icu_tokenizer",
+    "text": ["星球 战是我最喜欢的电影"]
+}

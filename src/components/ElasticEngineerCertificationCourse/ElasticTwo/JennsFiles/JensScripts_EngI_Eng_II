@@ -1,0 +1,1273 @@
+### Jens Demo Scripts ###
+
+###ENG I Module 1:  Lesson 3 CRUD
+
+PUT employees
+
+GET employees
+
+DELETE employees
+
+#PUT  - you provide ID
+PUT employees/_doc/1
+{
+  "first_name": "Ryan", 
+  "last_name": "Jackson", 
+  "salary": 125000
+  
+}
+
+#POST - ID auto created
+POST employees/_doc 
+{
+  "first_name": "Sally", 
+  "last_name": "Smith", 
+  "salary": 137000
+}
+
+  
+#Already exists?  
+PUT employees/_doc/1
+{
+  "first_name": "Samantha", 
+  "last_name": "Price", 
+  "salary": 250000
+}
+
+#Can use op_type to not update, receive error
+PUT employees/_doc/1?op_type=create
+{
+  "first_name": "Samantha", 
+  "last_name": "Price", 
+  "salary": 250000
+}
+
+
+#Use _create endpoint 
+PUT employees/_create/100
+{
+  "first_name": "Samantha", 
+  "last_name": "Price", 
+  "salary": 250000
+}
+
+#Update with _update endpoint
+POST employees/_update/1
+{
+  "doc": {
+    "salary": 45000
+  }
+}
+
+#Update with same value, what is result? 
+POST employees/_update/1
+{
+  "doc": {
+    "salary": 45000
+  }
+}
+
+#Delete
+DELETE employees
+
+#Notice first sets _id, others don't, also can combine update, index, delete
+PUT employees/_bulk
+{"index":{"_id":1}}
+{"first_name":"Jennifer","last_name":"Campion","salary":150000}
+{"index":{}}
+{"first_name":"Will","last_name":"Dinyes","salary":75000}
+{"index":{}}
+{"first_name":"Mark","last_name":"Laney","salary":250000}
+{"update": {"_id":1}}
+{"doc":{ "salary": 300000 }}
+{"delete": {"_id": 1}}
+
+GET employees/_doc/6
+
+##Coffee  https://github.com/elastic/examples/blob/master/canvas/elasticoffee/elasticoffee-data.bulk
+POST _bulk
+{"index":{"_index":"elasticoffee","_type":"doc","_id":"1"}}
+{"sceneID":"2","sceneData":"0","entityID":"zwave.quad2","quadId":2,"quadMod":"1","@timestamp":"2018-02-27T22:26:39Z","beverageClass":"Hot Beverages","beverage":"Latte","beverageSide":"left","beverageIndex":5,"quantity":1}
+{"index":{"_index":"elasticoffee","_type":"doc","_id":"2"}}
+{"sceneID":"3","sceneData":"0","entityID":"zwave.quad1","quadId":1,"quadMod":"0","@timestamp":"2018-02-27T22:26:39Z","beverageClass":"Hot Beverages","beverage":"Mocha","beverageSide":"left","beverageIndex":2,"quantity":1}
+{"index":{"_index":"elasticoffee","_type":"doc","_id":"3"}}
+{"sceneID":"1","sceneData":"0","entityID":"zwave.quad2","quadId":2,"quadMod":"1","@timestamp":"2018-02-27T22:26:39Z","beverageClass":"Hot Beverages","beverage":"Espresso","beverageSide":"left","beverageIndex":4,"quantity":1}
+{"index":{"_index":"elasticoffee","_type":"doc","_id":"4"}}
+{"sceneID":"2","sceneData":"0","entityID":"zwave.quad1","quadId":1,"quadMod":"0","@timestamp":"2018-02-28T15:29:39Z","beverageClass":"Hot Beverages","beverage":"Americano","beverageSide":"left","beverageIndex":1,"quantity":1}
+{"index":{"_index":"elasticoffee","_type":"doc","_id":"5"}}
+{"sceneID":"1","sceneData":"0","entityID":"zwave.quad1","quadId":1,"quadMod":"0","@timestamp":"2018-02-28T15:29:40Z","beverageClass":"Hot Beverages","beverage":"Cappuccino","beverageSide":"left","beverageIndex":0,"quantity":1}
+{"index":{"_index":"elasticoffee","_type":"doc","_id":"6"}}
+{"sceneID":"3","sceneData":"0","entityID":"zwave.quad1","quadId":1,"quadMod":"0","@timestamp":"2018-02-28T15:29:40Z","beverageClass":"Hot Beverages","beverage":"Mocha","beverageSide":"left","beverageIndex":2,"quantity":1}
+{"index":{"_index":"elasticoffee","_type":"doc","_id":"7"}}
+{"sceneID":"3","sceneData":"0","entityID":"zwave.quad4","quadId":4,"quadMod":"1","@timestamp":"2018-02-28T15:36:24Z","beverageClass":"Hot Beverages","beverage":"Coffee","beverageSide":"right","beverageIndex":6,"quantity":1}
+
+
+#Eng I - Module 2 Lesson 1
+
+GET blogs/_search
+
+
+GET logs_server*/_search
+{
+ 
+}
+
+
+GET logs_server*/_search
+{
+  "track_total_hits": true
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": "ingest"
+    }
+  }
+}
+
+#Source filtering on title
+GET blogs/_search
+{
+  "_source": "title", 
+  "query": {
+    "match": {
+      "title": "ingest node"
+    }
+  }
+}
+
+#size, source filtering, exclues
+GET blogs/_search
+{
+  "size": 100,
+  "_source": {
+    "excludes": ["content"]
+  },
+  "query": {
+    "match_all": {}
+  }
+}
+
+#Increase precision - notice the slight change of sytnax
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "title": {
+        "query": "ingest node",
+        "operator": "and"
+      }
+    }
+  }
+}
+
+#Min Should Match
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "title": {
+        "query": "ingest node logstash",
+        "minimum_should_match": 2
+      }
+    }
+  }
+}
+
+
+#ENG 1 Module 2: Lesson 2
+#Full Text Queries
+# Module 2 Lessson 2
+
+#Reg Match
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": {
+        "query": "open data", 
+        "operator": "and"
+      }
+    }
+  }
+}
+
+# Match Phrase- position matter
+# add slop
+GET blogs/_search
+{
+  "query": {
+    "match_phrase": {
+      "content": {
+        "query": "open data", 
+        "slop": 1
+      }
+    }
+  }
+}
+
+# Multi-Match
+#title, content, author - shay banon, phrase, most fields, boosting
+GET blogs/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "shay banon",
+      "fields": [
+        "content",
+        "title^2",
+        "author"
+      ],
+      "type": "best_fields"
+    }
+  }
+}
+
+# another multi-match (change type=phrase)
+GET blogs/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "elasticsearch training",
+      "fields": ["content", "title"], 
+      "type": "best_fields"
+    }
+  }
+}
+
+# fuzziness (shark in title)
+GET blogs/_search
+{
+  "_source": "title",
+  "query": {
+    "match": {
+      "title": {
+        "query": "shark",
+        "fuzziness": 1
+      }
+    }
+  }
+}
+
+
+###ENG I Module 3
+
+###Aggregations - Lesson 1, Lesson 2
+#Do some demos here (DEMO Kibana Aggs)
+
+
+
+
+#Sum of all bytes in response_size
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "sum_of_all_bytes": {
+      "sum": {
+        "field": "response_size"
+      }
+    }
+  }
+}
+
+#Sum of all bytes in response_size with query of country
+GET logs_server*/_search
+{
+  "size": 10,
+  "query": {
+    "match": {
+      "geoip.country_name.keyword": "Germany"
+    }
+  }, 
+  "aggs": {
+    "sum_of_all_bytes": {
+      "sum": {
+        "field": "response_size"
+      }
+    }
+  }
+}
+
+#Min, max, avg of all bytes in response_size
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "smallest": {
+      "min": {
+        "field": "response_size"
+      }
+    }
+  }
+}
+
+#Percentiles
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "percentiles": {
+      "percentiles": {
+        "field": "runtime_ms",
+        "percents": [
+          50
+        ]
+      }
+    }
+  }
+}
+
+#Cardinality
+GET blogs/_search
+{
+  "size": 0, 
+  "aggs": {
+    "num_of_authors": {
+      "cardinality": {
+        "field": "author.keyword"
+      }
+    }
+  }
+}
+################################################
+#TERMS - doc counts, errors, etc
+GET blogs/_search
+{
+  "size": 0, 
+  "aggs": {
+    "by_author": {
+      "terms": {
+        "field": "author.keyword",
+        "size": 10
+      }
+    }
+  }
+}
+
+#More TERMS...this time with doc count errors...explain
+GET logs_server*/_search
+{
+  "size": 0, 
+  "aggs": {
+    "by_country": {
+      "terms": {
+        "field": "geoip.country_name.keyword",
+        "size": 10
+      }
+    }
+  }
+}
+
+#slide 211
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "most_popular": {
+      "terms": {
+        "field": "originalUrl.keyword",
+        "size": 10
+      }
+    }
+  }
+}
+
+#5 most popular blogs
+GET blogs*/_search
+{
+  "size": 0,
+  "aggs": {
+    "most_popular": {
+      "terms": {
+        "field": "category.keyword",
+        "size": 5
+      }
+    }
+  }
+}
+
+
+#with sorting of the bucket
+GET blogs*/_search
+{
+  "size": 0,
+  "aggs": {
+    "most_popular": {
+      "terms": {
+        "field": "author.keyword", 
+        "order": {
+          "_key": "asc"
+        }
+      }
+    }
+  }
+}
+
+
+###ENG 1 Module 3: 
+###Combining Aggregations - Lesson 3
+
+#How many bytes per day? 
+#Add Avg
+#Change to Stats
+#Add sort to by day - sum_of_bytes
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "by_day": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "interval": "day",
+        "format": "MM-dd-YYYY"
+      },
+      "aggs": {
+        "sum_of_bytes": {
+          "sum": {
+            "field": "response_size"
+          }
+        },
+        "avg_of_bytes": {
+          "avg": {
+            "field": "response_size"
+          }
+        }
+      }
+    }
+  }
+}
+
+
+#SubBuckets
+#start with country, add geoip.city_name.keyword
+GET logs_server*/_search
+{
+  "size": 0, 
+  "aggs": {
+    "by_country": {
+      "terms": {
+        "field": "geoip.country_name.keyword",
+        "size": 10
+      }
+    }
+  }
+}
+
+#TopHits, start here and add top_hits
+GET blogs/_search
+{
+  "size": 0,
+  "query": {
+    "match": {
+      "title": "logstash filters"
+    }
+  },
+  "aggs": {
+    "by_author": {
+      "terms": {
+        "field": "author.keyword"
+      }
+    }
+  }
+}
+
+
+#TopHits, what is this doing????
+GET blogs/_search
+{
+  "size": 0,
+  "query": {
+    "match": {
+      "title": "logstash filters"
+    }
+  },
+  "aggs": {
+    "by_author": {
+      "terms": {
+        "field": "author.keyword"
+      }, 
+      "aggs": {
+        "NAME": {
+          "top_hits": {
+            "size": 3
+          }
+        }
+      }
+    }, 
+    "top":{
+      "top_hits": {
+        "size": 3
+      }
+    }
+  }
+}
+
+##Significant Terms
+#Reg ole aggs, bucket by author and then terms
+#Explain fielddata 
+GET blogs/_search
+{
+  "size": 0,
+  "aggs": {
+    "author_buckets": {
+      "terms": {
+        "field": "author.keyword",
+        "size": 10
+      },
+      "aggs": {
+        "content_terms": {
+          "terms": {
+            "field": "content",
+            "size": 10
+          }
+        }
+      }
+    }
+  }
+}
+
+#enable fielddata....be careful in production or large datasets
+PUT blogs/_mapping
+{
+  "properties": {
+    "content": {
+      "type": "text",
+      "fielddata": true
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "size": 0,
+  "aggs": {
+    "author_buckets": {
+      "terms": {
+        "field": "author.keyword",
+        "size": 10
+      },
+      "aggs": {
+        "content_significant_text": {
+          "significant_text": {
+            "field": "content",
+            "size": 10
+          }
+        }
+      }
+    }
+  }
+}
+
+
+###ENG 1 Module 4
+DELETE employee
+
+PUT employee/_doc/1
+{
+  "firstname": "Joseph", 
+  "lastname": "Ortiz", 
+  "title": "Software Engineer",
+  "age": 41
+}
+
+DELETE employees_for_demo
+
+
+PUT employees_for_demo
+{
+  "mappings": {
+    "properties": {
+      "firstname": {
+        "type": "keyword"
+      },
+      "salary": {
+        "type": "scaled_float",
+        "scaling_factor": 100
+      },
+      "title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      }
+    }
+  }
+}
+
+
+POST employees_for_demo/_bulk
+{"index":{}}
+{"firstname":"John","salary":50000, "title": "Marketing" }
+{"index":{}}
+{"firstnamefirstname":"Mary","salary":75000, "title": "Sales Engineer"}
+{"index":{}}
+{"firstname":"Alex","salary":115000, "title": "QA Engineer"}
+{"index":{}}
+{"firstname":"Juan","salary":45000, "title": "Marketing"}
+{"index":{}}
+{"firstname":"Preets","salary":55000, "title": "Software Engineer"}
+{"index":{}}
+{"firstname":"Will","salary":200000, "title": "Education Architect"}
+{"index":{}}
+{"firstname":"Nama","salary":150000, "title": "Software Architect"}
+{"index":{}}
+{"firstname":"Krishna","salary":57000, "title": "Marketing"}
+{"index":{}}
+{"firstname":"Pablo","salary":35000, "title": "Sales Intern"}
+{"index":{}}
+{"firstname":"Melvyn","salary":75000, "title": "QA Engineer"}
+
+
+
+GET employees_for_demo/_search
+{
+  "query": {
+    "match": {
+      "title": "software"
+    }
+  }
+}
+
+###ENG I Module 4: Lesson 3
+
+POST _analyze
+{
+  "text": "The brown fox named Fred jumped over the moon!", 
+  "analyzer": "english"
+}
+
+
+GET blogs/_search
+{
+  "query": {
+    "match_all": {}
+  }, 
+  "sort": [
+    {
+      "author.keyword": {
+        "order": "asc"
+      }
+    }
+  ]
+}
+
+#index:false - NO query but CAN aggregate
+PUT my_index
+{
+  "mappings": {
+    "properties": {
+      "salary1": {
+        "type": "long"
+      }, 
+      "salary2": {
+        "type": "long", 
+        "index": false
+      }
+    }
+  }
+}
+
+PUT my_index/_doc/1
+{
+  
+  "salary1": 100000, 
+  "salary2": 100000
+}
+
+PUT my_index/_doc/2
+{
+ 
+  "salary1": 50000, 
+  "salary2": 50000
+}
+
+#Will we get a hit using salary1?  salary2?
+GET my_index/_search
+{
+  "query": {
+    "match": {
+      "salary2": "50000"
+    }
+  }
+}
+
+#Can we agg using salary1?  salary2? 
+GET my_index/_search
+{
+  "size": 0,
+  "aggs": {
+    "avg_salary": {
+      "avg": {
+        "field": "salary1"
+      }
+    }
+  }
+}
+
+ENG I Module 4:  Lesson 4
+
+#copy_to Demo
+PUT jenstest
+{
+  "mappings": {
+    "properties": {
+      "firstname": {
+        "type": "keyword",
+        "copy_to": "fullname"
+      },
+      "lastname": {
+        "type": "keyword",
+        "copy_to": "fullname"
+      },
+      "fullname": {
+        "type": "text"
+      } 
+    }
+  }
+}
+
+PUT jenstest/_doc/1
+{
+  "firstname": "Fred", 
+  "lastname": "Smith"
+}
+
+PUT jenstest/_doc/2
+{
+  "firstname": "Sally", 
+  "lastname": "Smith"
+}
+
+PUT jenstest/_doc/3
+{
+  "firstname": "Smith", 
+  "lastname": "Jarod"
+}
+
+#Cant use match_phrase, loses order but CAN use:
+GET jenstest/_search
+{
+  "query": {
+    "match": {
+      "fullname": {
+        "query": "sally smith",
+        "operator": "and"
+      }
+    }
+  }
+}
+
+PUT ratings
+{
+  "mappings": {
+    "properties": {
+      "rating": {
+        "type": "float",
+        "null_value": 1
+      }
+    }
+  }
+}
+
+##NULL demo
+PUT ratings/_doc/1
+{
+  "rating": null
+}
+
+PUT ratings/_doc/2
+{
+  "rating": 5.0
+}
+
+#What is source?
+GET ratings/_search
+{
+  "query": {
+    "match": {
+      "rating": 1
+    }
+  }
+}
+
+##Dynamic Mapping
+PUT test
+{
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "int_patterns": {
+         "match": "int*",
+          "mapping": {
+            "type": "integer"
+          }
+        }
+      },
+      {
+        "my_string_fields": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "keyword"
+          }
+        }
+      }
+    ]
+  }
+}
+
+
+##Test
+PUT test/_doc/1
+{
+  "whatever": "this is a string!", 
+  "intwhatever": 34
+}
+
+GET test/_mapping
+
+###ENG I Module 5:  Lesson 3
+GET _cat/nodes
+GET _cluster/health
+
+DELETE badindex
+
+#3 nodes, what will happen??
+PUT badindex/
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 3
+  }
+}
+
+
+GET _cluster/allocation/explain
+{
+  "index": "badindex",
+  "shard": 0,
+  "primary": false
+}
+GET _cluster/health
+GET _cat/shards/badindex
+
+#To fix, either add another node OR reduce number of replicas
+PUT badindex/_settings
+{
+  "number_of_replicas": 2
+}
+
+##ENG I Module 5:  Lesson 3
+GET _cat/nodes
+GET _cluster/health
+
+DELETE badindex
+
+#3 nodes, what will happen??
+PUT badindex/
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 3
+  }
+}
+
+
+GET _cluster/allocation/explain
+{
+  "index": "badindex",
+  "shard": 0,
+  "primary": false
+}
+GET _cluster/health
+GET _cat/shards/badindex
+
+#To fix, either add another node OR reduce number of replicas
+PUT badindex/_settings
+{
+  "number_of_replicas": 2
+}
+
+
+
+
+###For Amaris W!!
+### This uses the SQL Date_Part function to give us weekdays on our logs.  :)
+
+POST /_sql?format=txt
+{
+  "query": """
+     SELECT DATE_PART ( 'dw', "@timestamp" ) as Weekday , count(*) from logs_server1
+     group by DATE_PART ( 'dw', "@timestamp" )
+  
+  """
+}
+
+###### ENG II ###########
+
+## ENG II
+## Module 1
+
+PUT blogs_example/_doc/531
+{
+  "title": "Time Series with Kibana",
+  "authors": [
+    {
+      "name": "Alex Smith",
+      "company": "Elastic"
+    },
+    {
+      "name": "Chris White",
+      "company": "Google"
+    }
+  ]
+}
+
+
+
+PUT blogs_example/_doc/678
+{
+  "title": "Memory Issues We'll Remember",
+  "authors": [
+    {
+      "name": "Alex Whittings",
+      "company": "Google"
+    }
+  ]
+}
+
+
+GET blogs_example/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "authors.name": "alex"
+          }
+        },
+        {
+          "match": {
+            "authors.company": "Google"
+          }
+        }
+      ]
+    }
+  }
+}
+
+#Let's delete and try again with new mappings
+DELETE blogs_example
+
+
+PUT blogs_example
+{
+  "mappings": {
+    "properties": {
+      "title": {
+        "type": "text"
+      },
+      "authors": {
+        "type": "nested",
+        "properties": {
+          "name": {
+            "type": "text", 
+            "fields": {
+              "keyword": {
+                "type": "keyword"
+              }
+            }
+          },
+          "company": {
+            "type": "text", 
+            "fields": {
+              "keyword": {
+                "type": "keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+#Try old search above (no workie)
+
+GET blogs_example/_search
+{
+  "query": {
+    "nested": {
+      "path": "authors",
+      "query": {
+        "bool": {
+          "must": [
+            { "match": { "authors.name": "alex" } },
+            { "match": { "authors.company": "Google" } }
+          ]
+        } 
+      }
+    }
+  }
+}
+
+
+# Nested AGGS
+GET blogs_example/_search
+{
+  "size": 0, 
+  "aggs": {
+    "by_author": {
+      "nested": {
+        "path": "authors"
+      },
+      "aggs": {
+        "companies": {
+          "terms": {
+            "field": "authors.company.keyword",
+            "size": 10
+          },
+          "aggs": {
+            "authors": {
+              "terms": {
+                "field": "authors.name.keyword",
+                "size": 10
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+###Lesson 2#####
+
+# Artist (1)
+#   |
+#   |
+#  Song (M) 
+#   
+PUT music
+{
+  "mappings": {
+    "properties": {
+      "artist": {
+        "type": "text"
+      },
+      "song": {
+        "type": "text"
+      },
+      "artist_relations": {
+        "type": "join",
+        "relations": {
+          "artist": "song"
+        }
+      }
+    }
+  }
+}
+
+
+
+# Parent (artists)
+POST /music/_bulk
+{"index":{"_id":1}}
+{"name":"John Legend","artist_relations":{"name":"artist"}}
+{"index":{"_id":2}}
+{"name":"Ariana Grande","artist_relations":{"name":"artist"}}
+
+# Children (songs)
+PUT music/_doc/3?routing=1
+{"song":"All of Me","artist_relations":{"name":"song","parent":1}}
+
+PUT music/_doc/4?routing=1
+{"song":"Beauty and the Beast","artist_relations":{"name":"song","parent":1}}
+
+PUT music/_doc/5?routing=2
+{"song":"Beauty and the Beast","artist_relations":{"name":"song","parent":2}}
+
+
+#Search for all songs (child) of an artist (parent).
+GET music/_search
+{
+  "query": {
+    "has_parent": {
+      "parent_type": "artist",
+      "query": {
+        "match": {
+          "name": "John Legend"
+        }
+      }
+    }
+  }
+}
+
+#Search for parents(artist) that have 1 to 10 children
+GET music/_search
+{
+  "query": {
+    "has_child": {
+      "type": "song",
+      "min_children": 1,
+      "max_children": 2,
+      "query": {
+        "match_all": {}
+      }
+    }
+  }
+}
+
+PUT atest/_doc/1
+{
+  "first_name": "Jennifer", 
+  "last_name": "Campion", 
+  "company": "Elastic", 
+  "title": "Education Engineer",
+  "age": 51
+}
+
+GET atest/_mapping
+
+
+
+
+## Lesson 3 - Field Alias
+
+
+PUT jenslogs/_doc/1
+{
+  "id": 5556
+}
+
+PUT jenslogs_2/_doc/1
+{
+  "userid": 5556
+}
+
+GET jenslogs*/_search
+{
+  "query": {
+    "match": {
+      "userid": "5556"
+    }
+  }
+}
+
+
+GET jenslogs/_mapping
+
+POST jenslogs/_mapping
+{
+  "properties": {
+    "userid": {
+      "type": "alias", 
+      "path": "id"
+    }
+  }
+}
+
+POST _analyze
+{
+  "text": "The running dog named Dog jumped over the moon!",
+  "analyzer": "english"
+}
+
+
+#same as above, added some html
+GET _analyze
+{
+ "text" : "The <b>running</b> dog named Dog jumped over the moon!", 
+ "tokenizer": "standard"
+}
+
+#same as above, added char_filter to deal with html,
+##This is showing all 3 parts
+GET _analyze
+{
+ "char_filter": ["html_strip"],
+ "tokenizer": "standard",
+ "filter": ["lowercase", "stop","snowball"],
+ "text" : "The <b>running</b> dog named Dog jumped over the moon!"
+}
+####################################################################
+
+#Custom Analyzer...
+
+
+POST _analyze
+{
+  "text": "C# is my favorite language", 
+  "analyzer": "standard"
+}
+
+PUT favlanguage
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_analyzer": {
+          "tokenizer": "standard",
+          "char_filter": [
+            "my_char_filter"
+          ],
+          "filter": [
+            "lowercase"
+          ]
+        }
+      },
+      "char_filter": {
+        "my_char_filter": {
+          "type": "mapping",
+          "mappings": [
+            "# => sharp",
+            "++ => plusplus"
+          ]
+        }
+      }
+    }
+  }
+}
+
+POST favlanguage/_analyze
+{
+ "analyzer": "my_analyzer",
+ "text": "My favorite language is C#"
+}
+
+POST _analyze
+{
+  "text": "To Be Or Not To Be", 
+  "tokenizer": "standard", 
+  "filter": ["lowercase","stop"]
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

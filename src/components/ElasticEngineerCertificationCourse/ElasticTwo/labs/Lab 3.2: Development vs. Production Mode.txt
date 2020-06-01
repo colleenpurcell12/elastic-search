@@ -1,0 +1,65 @@
+Lab 3.2: Development vs. Production Mode
+
+If you run an aggs query (with size set to 0) then it will auto cache, 
+so it you run it over and over again, it will get faster.
+8830 --> 3168 --> 54
+
+
+to disable caching and slow down subsequent searched set request_cache to false
+GET logs_*/_search?request_cache=false
+
+6500 --> 2700 --> 3656 --> 4293
+
+another way to disable caching is by setting size > 0 cause queries arent cached, 
+while pure aggregations (without queries) are.
+
+you can override the caching of a query with an aggregation by setting 
+request_cache to tru
+
+
+no caching, slow
+GET logs_*/_search?request_cache=false
+{
+  "size": 0,
+  ...
+
+yes caching, fast
+GET logs_*/_search?request_cache=true
+{
+  "size": 10,
+  ...
+  
+slow by default
+GET logs_*/_search
+{
+  "size": 10,
+
+gets faster by default
+GET logs_*/_search
+{
+  "size": 0,
+  "aggs": {
+    "NAME": {
+      "terms": {
+        "field": "geoip.country_name.keyword",
+        "size": 100
+      },
+      "aggs": {
+        "NAME": {
+          "terms": {
+            "field": "geoip.region_name.keyword",
+            "size": 100
+          },
+          "aggs": {
+            "NAME": {
+              "terms": {
+                "field": "geoip.city_name.keyword",
+                "size": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

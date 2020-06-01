@@ -1,0 +1,116 @@
+
+Lab 3.3
+For each week of blog requests, how many requests were received from each of the 6 values of status_code?
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "log_requests_over_time": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "calendar_interval": "week"
+      }, 
+      "aggs": {
+        "status_code_buckets": {
+          "terms": {
+            "field": "status_code",
+            "size": 6
+          }
+        }
+      }
+    }
+  }
+}
+NESTED AGGREGATIONS
+
+What is the median runtime for each status_code? 
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "status_code_buckets": {
+      "terms": {
+        "field": "status_code"
+      },
+      "aggs" : {
+        "run_time_outlier" : {
+            "percentiles" : {
+                "field" : "runtime_ms",
+                "percents" : [50] 
+            }
+        }
+      }
+    }
+  }
+}
+
+What are the top 3 URLs accessed from each of the top 20 cities?
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "top_cities": {
+      "terms": {
+        "field": "city.keyword",
+        "size": 20
+      },
+      "aggs" : {
+        "top_urls" : {
+          "terms": {
+            "field": "originalURL.keyword",
+            "size": 3
+          }
+        }
+      }
+    }
+  }
+}
+
+Change the terms aggregation of the top 3 URLs to a significant_terms aggregation and compare the results of the two different queries,  less generic and more specific topics.
+
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "top_cities": {
+      "terms": {
+        "field": "city.keyword",
+        "size": 20
+      },
+      "aggs" : {
+        "top_urls" : {
+          "significant_terms": {
+            "field": "originalURL.keyword",
+            "size": 3
+          }
+        }
+      }
+    }
+  }
+}
+Write a query that searches for "elasticsearch siem" in the content field and use this scope of documents to list only the title field of the top three blogs of each one of the top 5 categories.
+GET logs_server*/_search?size=0
+{
+  
+  "query": {
+    "match": {
+      "content": "elasticsearch siem"
+    }
+  },
+  "aggs": {
+    "top_5_catagories": {
+      "terms": {
+        "field": "category.keyword",
+        "size": 5
+      }
+    },
+    "aggs" : {
+        "top_title" : {
+          "significant_terms": {
+            "field": "title.keyword",
+            "size": 3,
+            "_source": "title"
+          }
+        }
+      }
+  }
+}
+
+
+

@@ -1,0 +1,191 @@
+Lab 2.4 
+
+
+update the query to account for when use selects Category: News
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": ["title", "content"]
+          }
+        }
+      ],
+      "filter": {
+          "match": {
+            "category.keyword": "News"
+          }
+        }
+    }
+  }
+}
+
+
+
+JUST MEMORIZE THIS ONE
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": [
+              "title",
+              "content"
+            ]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "bool": {
+            "should": [
+              {
+                "match": {
+                  "category.keyword": "News"
+                }
+              },
+              {
+                "match": {
+                  "category.keyword": "Culture"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+
+
+Term level queries
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": [
+              "title",
+              "content"
+            ]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "terms": {
+            "category.keyword": [
+              "News",
+              "Culture"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+
+specific only from 2017
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": [
+              "title",
+              "content"
+            ]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "terms": {
+            "category.keyword": [
+              "News",
+              "Culture"
+            ]
+          }
+        },
+        {
+          "range": {
+            "publish_date": {
+              "gte": "2017-01-01",
+              "lt": "2018-01-01"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+
+
+GET blogs/_search
+{
+  "size": 3,
+  "from": 9,
+  "_source": {
+    "excludes": "content"
+  },
+  "sort": [
+    {
+      "author.keyword": {
+        "order": "asc"
+      }
+    },
+    {
+      "publish_date": {
+        "order": "desc"
+      }
+    }
+  ],
+  "query": {
+    "match_phrase": {
+      "content": "elastic stack"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "content": {}
+    },
+    "pre_tags": [
+      "<mark>"
+    ],
+    "post_tags": [
+      "</mark>"
+    ]
+  }
+}
+
+Two ways to specify the pre tags and post tags
+highlight" : {
+  "fields" : {
+    "content" : { "pre_tags" : ["<mark>"], "post_tags" : ["</mark>"] }
+  }
+}
+
+"highlight": {
+    "fields": {
+      "content": {}
+    },
+    "pre_tags": [
+      "<mark>"
+    ],
+    "post_tags": [
+      "</mark>"
+    ]
+  }

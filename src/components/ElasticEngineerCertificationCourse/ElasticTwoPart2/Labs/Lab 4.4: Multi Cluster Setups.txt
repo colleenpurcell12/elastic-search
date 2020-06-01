@@ -1,0 +1,405 @@
+Lab 4.4: Multi Cluster Setups
+
+EXAM be able to translate the Kibana request into a CURL command
+pay attention to which cluster if the perspective
+
+PUT comments
+{
+  "mappings" : {
+    "properties" : {
+      "comment" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "movie" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "rating" : {
+        "type" : "long"
+      },
+      "username" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      }
+    }
+  }
+}
+
+Modify the elasticsearch.yml in server6 to look like the following.
+
+
+cluster.name: my_cluster_2
+node.name: ${NODENAME}
+network.host: _site_
+discovery.seed_hosts: ["server6"]
+cluster.initial_master_nodes: ["node6"]
+
+
+PUT comments/_doc/7
+{"username": "ricardo", "movie": "Star Trek IV: The Voyage Home","comment": "Loved it!", "rating": 5}
+
+PUT comments/_doc/8
+{"username": "sara", "movie": "Wonder Woman","comment": "Finally a good DC Comics movie", "rating": 4}
+
+
+Configure my_cluster so that it can run cross cluster searches onto my_cluster_2.
+
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.remote" : {
+      "my_cluster_2" : {
+        "seeds" : ["server6:9300"]
+      }
+    }
+  }
+}
+
+Run a search on my_cluster that hits all documents in both comments indices 
+(the comments index on my_cluster and the comments index on my_cluster_2). You should get 4 hits.
+
+GET my_cluster_2:comments,comments/_search
+
+
+GET comments,my_cluster_2:comments/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+* start a trial license on my_cluster in kibana license management *
+Access Kibana in your current cluster, click on Management, License Management, and Start Trial.
+
+curl -X POST "http://server6:9200/_license/start_trial?acknowledge=true"
+
+
+PUT my_replicated_blogs
+{
+  "settings": {
+    "index": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "soft_deletes": {
+        "enabled": true
+      }
+    }
+  },
+  "mappings" : {
+    "properties" : {
+      "author" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "category" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "content" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "locales" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "publish_date" : {
+        "type" : "date"
+      },
+      "seo_title" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "some_other_field" : {
+        "type" : "text"
+      },
+      "title" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      },
+      "url" : {
+        "type" : "text",
+        "fields" : {
+          "keyword" : {
+            "type" : "keyword",
+            "ignore_above" : 256
+          }
+        }
+      }
+    }
+  }
+}
+
+Use curl to connect my_cluster_2 to my_cluster, so it can pull changes to my_replicated_blogs and implement cross cluster replication.
+
+
+curl -X PUT "server6:9200/_cluster/settings?pretty" -H 'Content-Type: application/json' -d'
+{
+  "persistent": {
+    "cluster": {
+      "remote": {
+        "my_cluster_2": {
+          "seeds": [
+            "server1:9300", "server2:9300", "server3:9300"
+          ]
+        }
+      }
+    }
+  }
+}
+'
+Use curl to create a follower index called my_replicated_blogs, which references to my_cluster and its leader index my_replicated_blogs.
+
+
+curl -X PUT "localhost:9200/server-metrics-copy/_ccr/follow?wait_for_active_shards=1&pretty" -H 'Content-Type: application/json' -d' { "remote_cluster" : "leader", "leader_index" : "server-metrics" } '
+curl -X PUT "server6:9200/my_replicated_blogs/_ccr/follow?wait_for_active_shards=1&pretty" -H 'Content-Type: application/json' -d'
+ { "remote_cluster" : "my_cluster", "leader_index" : "my_replicated_blogs" } '
+
+
+PUT /_cluster/settings
+{
+  "persistent": {
+    "cluster.remote": {
+      "my_cluster": {
+        "seeds": [
+          "server1:9300",
+          "server2:9300",
+          "server3:9300"
+        ]
+      }
+    }
+  }
+}
+
+POST _reindex?wait_for_completion=false
+{
+  "source": {
+    "index": "blogs"
+  },
+  "dest": {
+    "index": "my_replicated_blogs"
+  }
+}
+
+
+
+[elastic@server2 ~]$ curl -X POST "http://server6:9200/_license/start_trial?acknowledge=true"
+{"acknowledged":true,"trial_was_started":true,"type":"trial"}[elastic@server2 ~]$ 
+
+
+
+
+[elastic@server2 ~]$ curl -X PUT "http://server6:9200/_cluster/settings" -H "Content-Type: application/json" -i -d '{ "persistent": { "cluster.remote" : { "my_cluster" : { "seeds" : ["server1:9300", "server2:9300", "server3:9300"] } } } }'
+HTTP/1.1 200 OK
+content-type: application/json; charset=UTF-8
+content-length: 144
+
+{"acknowledged":true,"persistent":{"cluster":{"remote":{"my_cluster":{"seeds":["server1:9300","server2:9300","server3:9300"]}}}},"transient":{}}[elastic@server2 ~]$ curl -X PUT "http://server6:9200/my_replicated_blogs/_ccr/follow" -H "Content-Type: applica '{ "remote_cluster" : "my_cluster", "leader_index" : "my_replicated_blogs" }'
+HTTP/1.1 200 OK
+content-type: application/json; charset=UTF-8
+content-length: 95
+
+{"follow_index_created":true,"follow_index_shards_acked":false,"index_following_started":false}[elastic@server2 ~]$ 
+
+
+
+
+[elastic@server2 ~]$ curl -X GET "http://server6:9200/my_replicated_blogs/_count"
+{"count":0,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0}}[elastic@server2 ~]$ 
+
+
+
+[elastic@server2 ~]$ curl -X GET "http://server6:9200/my_replicated_blogs/_count"
+
+
+
+
+Lab 4.4: Multi Cluster Setups
+
+
+Configure my_cluster so that it can run cross cluster searches onto my_cluster_2.
+
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster": {
+      "remote": {
+        "my_cluster_2": {
+          "seeds": [ "server6:9300" ]
+        }
+      }
+    }
+  }
+}
+
+
+Run a search on my_cluster that hits all documents in both comments indices (the comments index on my_cluster and the comments index on my_cluster_2). You should get 4 hits.
+
+GET comments,my_cluster_2:comments/_search
+
+Use curl to connect my_cluster_2 to my_cluster, so it can pull changes to my_replicated_blogs and implement cross cluster replication.
+
+
+
+PUT /my_replicated_blogs/_ccr/follow
+{
+  "remote_cluster" : "my_cluster_2",
+  "leader_index" : "blogs"
+}
+
+
+PUT /server-metrics-copy/_ccr/follow?wait_for_active_shards=1&pretty
+ { "remote_cluster" : "leader", "leader_index" : "server-metrics" }
+
+GET /my_replicated_blogs/_count
+
+POST _reindex
+{
+  "source": {
+    "index": "blogs"
+  },
+  "dest": {
+    "index": "my_replicated_blogs"
+  }
+}
+
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.remote": {
+      "germany_cluster": {
+        "seeds": [
+          "my_server:9300",
+          "64.33.90.170:9300"
+        ]
+      }
+    }
+  }
+}
+
+GET germany_cluster:blogs/_search
+{
+  "query": {
+    "match": {
+      "title": "network"
+    }
+  }
+}
+
+PUT blogs_copy/_ccr/follow
+{
+  "remote_cluster": "my_remote_cluster",
+  "leader_index": "blogs_ccr"
+}
+
+
+
+
+
+
+
+
+
+
+Configure my_cluster so that it can run cross cluster searches onto my_cluster_2.
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster": {
+      "remote": {
+        "my_cluster_2": {
+          "seeds": [
+            "server6:9300"
+          ]
+        }
+      }
+    }
+  }
+}
+
+Run a search on my_cluster that hits all documents in both comments indices (the comments index on my_cluster and the comments index on my_cluster_2). You should get 4 hits.
+
+
+
+GET comments,my_cluster_2:comments/_search
+
+
+leader index is my_replicated_blogs in my_cluster
+
+connect my_cluster_2 to my_cluster, so it can pull changes to my_replicated_blogs and implement cross cluster replication
+
+
+//// "http://server6:9200/_cluster/settings"
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster": {
+      "remote": {
+        "my_cluster": {
+          "seeds": [
+            "server1:9300", "server2:9300", "server3:9300"
+          ]
+        }
+      }
+    }
+  }
+}
+
+create a follower index called my_replicated_blogs, which references to my_cluster and its leader index my_replicated_blogs
+
+PUT /my_replicated_blogs/_ccr/follow?wait_for_active_shards=1
+{"remote_cluster":"my_cluster","leader_index":"my_replicated_blogs"}
+
+///// curl -X PUT "http://server6:9200/my_replicated_blogs/_ccr/follow?wait_for_active_shards=1" -H "Content-Type: application/json" -i -d '{"remote_cluster":"my_cluster","leader_index":"my_replicated_blogs"}
+'
+now that you have a my_replicated_blogs on both clusters, you can easily reindex your blogs into your replicated blogs index

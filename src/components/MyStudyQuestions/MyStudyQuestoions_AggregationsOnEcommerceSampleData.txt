@@ -1,0 +1,329 @@
+This exercise uses Kibana's ecommerce data set to practice queries and aggregations, fix the index mapping by setting up a new index
+
+First Step: get some sample data for the exam prep questions below
+Add Data to Kibana --> Sample eCommerce orders --> click "Add Data"
+
+Verify that it's in your list of indices
+GET _cat/indices?v
+
+Explore the data
+GET kibana_sample_data_ecommerce/_mapping
+GET kibana_sample_data_ecommerce/_search?size=1
+
+There are 4675 documents in the index
+Main fields in _source are category
+
+first lets reindex the dataset into our own index
+POST _reindex
+{
+  "source": {
+    "index": "kibana_sample_data_ecommerce"
+  },
+  "dest": {
+    "index": "store_transactions"
+  }
+}
+
+If it fails due to a auto_create_index error run this first:
+PUT _cluster/settings
+{
+  "persistent": {
+    "action.auto_create_index": true
+  }
+}
+
+GET store_transactions/_search?size=1
+Lets  do some aggregations to get to know the data
+
+Which cities do transactions come from per country?
+
+GET store_transactions/_search
+{
+  "size": 0, 
+  "aggs": {
+    "countries": {
+      "terms": {
+        "field": "geoip.country_iso_code.keyword"
+      },
+      "aggs": {
+        "cities": {
+          "terms": {
+            "field": "geoip.city_name.keyword"
+          }
+        }
+      }
+    }
+  }
+}
+
+Which weeks do transactions take place in? Hint: use order_date.
+
+GET store_transactions/_search
+{
+  "size": 0, 
+  "aggs": {
+    "transaction_year": {
+      "date_histogram": {
+        "field": "order_date",
+        "calendar_interval": "week"
+      }
+    }
+  }
+}
+
+Answer: from 2020-05-11 to 2020-06-08
+
+What's the total value of goods sold? (currency is in EUR)
+
+GET store_transactions/_search
+{
+  "size": 0, 
+  "aggs": {
+    "sum_goods_sold": {
+      "sum": {
+        "field": "taxful_total_price"
+      }
+    }
+  }
+}
+
+Answer: 350,859 euros
+
+For the sales within the first 7 days of June, find the total sales per country and sort the countries by the biggest transaction price. (use taxful_total_price) What are the top 3 countries by largest transaction?
+
+GET store_transactions/_search
+{
+  "size": 0,
+  "query": {
+    "range": {
+      "order_date": {
+        "gte": "2020-06-01",
+        "lt": "2020-06-08"
+      }
+    }
+  },
+  "aggs": {
+    "countries": {
+      "terms": {
+        "field": "geoip.country_iso_code.keyword",
+        "order": {
+          "biggest_tranaction": "desc"
+        }
+      },
+      "aggs": {
+        "biggest_tranaction": {
+          "max": {
+            "field": "taxful_total_price"
+          }
+        },
+        "total_sales": {
+          "sum": {
+            "field": "taxful_total_price"
+          }
+        }
+      }
+    }
+  }
+}
+Answer: US, Egypt and UAE.
+
+Generate the gender breakdown for each manufacturer
+GET store_transactions/_search?size=0
+{
+  "aggs": {
+    "manufacturer": {
+      "terms": {
+        "field": "manufacturer.keyword"
+      },
+      "aggs": {
+        "genders": {
+          "terms": {
+            "field": "customer_gender.keyword"
+          }
+        }
+      }
+    }
+  }
+}
+Answer: Pyramidustries and Gnomehouse are all female customers
+
+Let's get a sense of the total cost distribution. Find the 25 percentile price and the 75 percentile price.
+
+GET store_transactions/_search?size=0
+{
+  "aggs": {
+    "perc_price": {
+      "percentiles": {
+        "field": "taxful_total_price",
+        "percents": [
+          25,50,75,90,95,99
+        ]
+      }
+    }
+  }
+}
+
+
+Are more than half of the transactions above 50 Euro?
+
+GET store_transactions/_search?size=0
+{
+  "aggs": {
+    "rank_price": {
+      "percentile_ranks": {
+        "field": "taxful_total_price",
+        "values": [
+          50.00
+        ]
+      }
+    }
+  }
+}
+
+Answer: 50 euro price is the 34 percentile, so most transactions are larger than that--> true
+
+Group by number of items per order and sort from smallest order to largest.
+
+GET store_transactions/_search?size=0
+{
+  "aggs": {
+    "items_per_order": {
+      "terms": {
+        "field": "total_quantity",
+        "size": 10,
+        "order": {
+          "_key": "asc"
+        }
+        
+      }
+    }
+  }
+}
+
+Answer: 87 orders had 1 item abnd about 4000 had two items (then 4 items, then 8)
+
+How many transactions where there for price points of 50 euro increments? Exclude buckets with less than 500 orders.
+
+GET store_transactions/_search?size=0
+{
+  "aggs": {
+    "orders_by_price": {
+      "histogram": {
+        "field": "taxful_total_price",
+        "interval": 50,
+        "min_doc_count": 500
+      }
+    }
+  }
+}
+
+Answer: About 2000 btw 50 and 100 euro, 690 btw 100 and 150
+
+What are the names and countries of the customers with the top 10 largest transactions?
+
+GET store_transactions/_search
+{
+  "size": 10,
+  "_source": {
+    "includes": ["customer_full_name","manufacturer", "geoip","taxful_total_price"]
+  }, 
+  "sort": [
+    {
+      "taxful_total_price": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+Answer: Wagdi Shaw from SA spent 2249 and Sultan Al Bryan from UAE spend 392
+
+Which manufacturers sell the most product (sort highest at top)?
+
+GET store_transactions/_search?size=0
+{
+  "aggs": {
+    "manufacturer": {
+      "terms": {
+        "field": "manufacturer.keyword",
+        "order": {
+          "total_sales": "desc"
+        }
+      },
+      "aggs": {
+        "total_sales": {
+          "sum": {
+            "field": "taxful_total_price"
+          }
+        }
+      }
+    }
+  }
+}
+Answer: Low Tide Media and Oceanavigations have the most sales
+
+(explore) Query products name includes "t-shirt" and bucket 20 product names
+GET store_transactions/_search?size=0
+{
+  "query": {
+   "match": {
+     "products.product_name": "t-shirt"
+   }
+  }, 
+  "aggs": {
+    "NAME": {
+      "terms": {
+        "field": "products.product_name.keyword",
+        "size":20
+      }
+    }
+  }
+}
+
+
+Out of all the matches on product name "print basic shirt light blue", get the top 3 transactions for each manufacturer.
+GET store_transactions/_search?size=0
+{
+  "query": {
+    "match": {
+      "products.product_name": "print basic shirt light blue"
+    }
+  }, 
+  "aggs": {
+    "manufacturer": {
+      "terms": {
+        "field": "manufacturer.keyword"
+      },
+      "aggs": {
+        "NAME": {
+          "top_hits": {
+            "size": 2,
+            "_source": {"includes": ["products","customer_full_name"]}
+          }
+        }
+      }
+    }
+  }
+}
+Answer: manufacturer Low Tide Media has customer Oliver Strickland who bought "2 PACK - Basic T-shirt - light blue multicolor" and a "Print T-shirt - mottled light grey"
+
+What are the most common terms in product descriptions per manufacturer?
+
+GET store_transactions/_search?size=0
+{
+  "aggs": {
+    "manufacturers": {
+      "terms": {
+        "field": "manufacturer.keyword",
+        "size": 10
+      },
+      "aggs": {
+        "NAME": {
+          "significant_text": {
+            "field": "products.product_name"
+          }
+        }
+      }
+    }
+  }
+}
+Answer: use a significant_text inner agg

@@ -1,0 +1,161 @@
+Lab 2.2 
+
+
+GET blogs/_search
+{
+    "query": {
+        "match" : {
+            "content": {
+                "query" : "search analytics",
+                "operator" : "and"
+            }
+        }
+    }
+    
+}
+
+top 3 hits
+
+GET blogs/_search
+{
+  "size": 3,
+    "query": {
+        "match_phrase" : {
+            "content": {
+                "query" : "search analytics"
+            }
+        }
+    }
+    
+}
+
+account for a word in between the search terms
+GET blogs/_search
+{
+  "size":3,
+    "query": {
+        "match_phrase" : {
+            "content": {
+                "query" : "search analytics",
+                "slop": 1
+            }
+        }
+    }
+}
+^improvement!
+
+GET blogs/_search
+{
+  "size":3,
+    "query": {
+        "match_phrase" : {
+            "content": {
+                "query" : "open source"
+            }
+        }
+    }
+    
+}
+
+top 3 hits
+GET blogs/_search
+{
+  "size":3,
+    "query": {
+        "match_phrase" : {
+            "title": {
+                "query" : "open source"
+            }
+        }
+    }
+    
+}
+
+multi-match
+GET blogs/_search
+{
+  "query": {
+    "multi_match" : {
+      "query":    "open source", 
+      "fields": [ "title", "content" ] 
+    }
+  }
+}
+
+EXAM PREP: Modify your multi_match query by giving the title field a boost of 2. How does the score of the top hit compare to the previous query without the boost?
+field boosting
+GET blogs/_search
+{
+  "query": {
+    "multi_match" : {
+      "query":    "open source", 
+      "fields": [ "title^2", "content" ] 
+    }
+  }
+}
+^the top score doubles
+
+GET blogs/_search
+{
+  "query": {
+    "multi_match" : {
+      "query":    "open source", 
+      "fields": [ "title.keyword", "content.keyword" ]
+    }
+  }
+}
+
+
+
+EXAM PREP: Boost affects the score without impacting recall or precision. Remove the boost and modify your multi_match query to perform a phrase query, which increases precision (perhaps at the expense of recall). Did the increase in precision return more or fewer hits?
+
+
+make it a *phrase* multi-match
+GET blogs/_search
+{
+  "query": {
+    "multi_match" : {
+      "query":    "open source", 
+      "fields": [ "title", "content" ],
+      "type": "phrase"
+    }
+  }
+}
+
+EXAM PREP: Try increasing the recall (perhaps at the expense of precision) by adding the fuzziness parameter, permitting a maximum of 2 edits per word. Did the increased recall return more of fewer hits? How relevant are they?
+
+fuzziness, mispellings
+adding the fuzziness parameter, permitting a maximum of 2 edits per word
+GET blogs/_search
+{
+  "_source": "title",
+  "query": {
+    "match": {
+      "title": {
+        "query": "open source",
+        "fuzziness": 2
+      }
+    }
+  }
+}
+
+^ too much fuzziness for a short word, irrelevant results
+
+
+EXAM PREP: Modify your query so that Elasticsearch uses the auto fuzziness level. Were more or fewer hits returned? How relevant are they?
+
+
+fuzziness of auto has less hits but more precise
+GET blogs/_search
+{
+  "_source": "title",
+  "query": {
+    "match": {
+      "title": {
+        "query": "oven sauce",
+        "fuzziness": auto
+      }
+      
+    }
+  }
+}

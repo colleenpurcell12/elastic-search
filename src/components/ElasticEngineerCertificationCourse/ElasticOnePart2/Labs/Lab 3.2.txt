@@ -1,0 +1,71 @@
+Lab 3.2
+
+BUCKET AGGREGATIONS
+
+instead of default sorting by doc_count, make it sorted by status_code alphabetically.
+GET logs_server*/_search
+{
+  "size": 0,
+    "aggs" : {
+        "status_codes" : {
+            "terms" : { "field" : "status_code" },
+            "order" : { "_key" : "asc" }
+        }
+    }
+}
+
+
+
+add to the query, top category buckets
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": {
+        "multi_match": {
+          "query": "open source",
+          "fields": [
+            "title^2",
+            "content"
+          ],
+          "type": "phrase"
+        }
+      }
+    }
+  },
+  "aggs": {
+    "hits_per_category": {
+      "terms": {
+        "field": "category"
+      }
+    }
+  }
+}
+
+
+GET logs_server*/_search
+{
+  "size": 0,
+    "aggs" : {
+        "response_sizes" : {
+            "histogram" : {
+                "field" : "response_size",
+                "interval" : 1000
+            }
+        }
+    }
+}
+
+ log requests per week
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "log_requests_over_time": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "calendar_interval": "week"
+      }
+    }
+  }
+}
+  

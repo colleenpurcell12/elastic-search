@@ -1,0 +1,31 @@
+.linux-container {
+  width: 100%;
+  margin: 0 auto;
+}  
+  
+.linux-image-small {
+  width: 70%;
+  max-width: 400px;
+}
+
+.linux-image-medium {
+  width: 85%;
+  max-width: 600px;
+}
+
+.linux-image-large {
+  width: 100%;
+  max-width: 1100px;
+}
+
+.topic-description {
+  text-align: left;
+  width: 50%;
+  margin: 0 auto;
+}
+
+.topic-header {
+  font-size: 1.6em;
+}
+
+

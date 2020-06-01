@@ -1,0 +1,44 @@
+Doing labs from Scratch with only ES Documentation
+
+Lab 2
+in CLI: 
+ssh server1
+GET /
+curl -X GET "http://localhost:9200/"
+
+you can "Copy As Curl" in wrench icon in Kibana
+
+
+curl -XGET "http://server1:9200/_mget" -H 'Content-Type: application/json' -d'{    "docs" : [        {            "_index" : "my_blogs2",            "_id" : "3"        },        {            "_index" : "my_blogs2",            "_id" : "2"        }    ]}'
+
+
+MEMORIZE THIS cause the docs provide poor examples
+
+Which blogs have a content field that includes at least 2 of the terms performance or optimizations or improvements?
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match": {
+            "content": "performance"
+          }
+        },
+        {
+          "match": {
+            "content": "optimizations"
+          }
+        },
+        {
+          "match": {
+            "content": "improvements"
+          }
+        }
+      ],
+      "minimum_should_match": 2
+    }
+  }
+}
+

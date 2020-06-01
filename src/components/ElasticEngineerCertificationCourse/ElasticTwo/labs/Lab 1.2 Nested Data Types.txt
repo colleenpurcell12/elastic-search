@@ -1,0 +1,135 @@
+Lab 1.2: Nested and Join Data Types
+
+
+Lab 1.2
+
+PUT nested_blogs/_mapping
+{
+  "properties": {
+    "id": {
+      "type": "keyword"
+    },
+    "title": {
+      "type": "text",
+      "analyzer": "english",
+      "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+    },
+    "products": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword"
+        }
+      }
+    },
+    "authors": {
+      "type": "nested",
+      "properties": {
+        "name":{
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        },
+        "company": {
+          "type": "object"
+          "properties": {
+            "name": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "country": {
+              "type": "object"
+              "properties": {
+                "name":  {
+                  "type": "text",
+                  "fields": {
+                    "keyword": {
+                      "type": "keyword"
+                    }
+                  }
+                },
+                "code":  {"type": "keyword"}
+              }
+            }
+          }
+        },
+      }
+    }
+  }
+}
+
+POST nested_blogs/_bulk
+{"index":{"_id":1}}
+{"id":"1","title":"Time Series with Kibana","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}}]}
+{"index":{"_id":2}}
+{"id":"2","title":"Memory Issues We'll Remember","authors":[{"name":"Chris Overton","company":{"country":{"code":"FR","name":"France"},"name":"Globex"}},{"name":"Alex Brasetvik","company":{"country":{"code":"BR","name":"Brazil"},"name":"Elastic"}}]}
+{"index":{"_id":3}}
+{"id":"3","title":"Making Kibana Accessible","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}},{"name":"Tim Roes","company":{"country":{"code":"JP","name":"Japan"},"name":"Soylent"}}]}
+
+
+modify the query from the first step to execute a nested query. It should return a single document now
+
+GET nested_blogs/_search
+{
+   "query":  {
+        "nested" : {
+            "path" : "authors",
+            "query": {
+              "bool": {
+                "must": [
+                  {
+                    "match": {
+                      "authors.name": "alex"
+                    }
+                  },
+                  {
+                    "match": {
+                      "authors.company.name.keyword": "Elastic"
+                    }
+                  }
+                ]
+              }
+            }
+        }
+   }
+}
+
+
+Problem with the agg below? The result returns many authors as a sub-bucket of a company that they don’t work for
+
+GET nested_blogs/_search
+{
+  "size": 0,
+  "aggs" : {
+    "authors" : {
+      "nested" : {
+        "path" : "authors"
+      },
+      "aggs": {
+        "NAME": {
+          "terms": {
+            "field": "authors.company.name.keyword"
+          },
+          "aggs": {
+            "NAME": {
+              "terms": {
+                "field": "authors.name.keyword"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

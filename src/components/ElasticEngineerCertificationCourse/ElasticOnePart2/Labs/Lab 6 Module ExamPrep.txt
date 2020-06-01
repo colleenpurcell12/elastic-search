@@ -1,0 +1,10 @@
+EXAM PREP: Keep digging it. Figure out which index is red and which shard is unassigned. Feel free to use the _cluster or _cat APIs.
+
+GET _cluster/health
+GET _cluster/health/nested_blogs?level=shards
+GET _cat/indices/nested_blogs?v
+
+EXAM PREP: Now that we know which shard has the issue, use the Cluster Allocation Explain API to understand it. Can you discover what the problem is?
+
+GET _cluster/allocation/explain
+==> the shard cannot be allocated to the same node on which a copy of the shard already exists

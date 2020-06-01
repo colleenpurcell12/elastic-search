@@ -1,0 +1,950 @@
+
+
+~~~
+info about current node
+GET /
+
+for all documents in every index:
+GET _search
+{
+    "query": {
+        "match_all": {}
+    }
+}
+
+GET my_blogs2
+
+INDEX documents into a index
+PUT my_blogs2/_doc/1
+{
+  "id": "1",
+  "title": "Better query execution",
+  "category": "Engineering",
+  "date":"July 15, 2015",
+  "author":{
+    "first_name": "Adrien",
+    "last_name": "Grand",
+    "company": "Elastic"
+  }
+}
+
+PUT my_blogs2/_doc/2
+{
+  "id": "2",
+  "title": "The Story of Sense",
+  "date":"May 28, 2015",
+  "author":{
+    "first_name": "Boaz",
+    "last_name": "Leskes"
+  }
+}
+
+POST  my_blogs2/_doc
+{
+  "id": "57",
+  "title": "Phrase Queries: a world without Stopwords",
+  "date":"March 7, 2016",
+  "category": "Engineering",
+  "author":{
+    "first_name": "Gabriel",
+    "last_name": "Moskovicz"
+  }
+}
+
+
+GET my_blogs2/_doc/1
+
+This is how you delete a document
+DELETE my_blogs2/_doc/1
+
+
+bulk updates 
+POST _bulk
+{"update":{"_id":"2","_index":"my_blogs2"}}
+{"doc":{"category":"Engineering"}}
+{"update":{"_id":"2","_index":"my_blogs2"}}
+{"doc":{"author.company":"Elastic"}}
+{"index":{"_index":"my_blogs2","_id":"3"}}
+{"title":"Using Elastic Graph","category":"Engineering","date":"May 25, 2016","author":{"first_name":"Mark","last_name":"Harwood","company":"Elastic"}}
+
+
+POST my_blogs2/_bulk
+{"update":{"_id":"2"}}
+{"doc":{"category":"Engineering", "author.company":"Elastic"}}
+
+**HOW TO UPDATED NESTED PROPERTIES????
+
+
+GET my_blogs2/_search
+
+
+GET /_mget
+{
+    "docs" : [
+        {
+            "_index" : "my_blogs2",
+            "_id" : "3"
+        },
+        {
+            "_index" : "my_blogs2",
+            "_id" : "2"
+        }
+    ]
+}
+
+GET blogs/_search
+
+GET logs_server1,logs_server2,logs_server3/_count
+GET logs_server*/_count
+
+GET blogs/_search
+{
+  "size": 1,
+  "_source": {
+    "excludes": [
+      "content"
+    ]
+  },
+  "query": {
+    "match_all": {}
+  }
+}
+
+
+GET blogs/_search
+{
+    "query": {
+        "match" : {
+            "title" : "elastic"
+        }
+    }
+}
+
+GET blogs/_search
+{
+    "query": {
+        "match" : {
+            "title" : "elastic stack"
+        }
+    }
+}
+
+
+GET blogs/_search
+{
+    "query": {
+        "match" : {
+            "title" : {
+                "query" : "elastic stack",
+                "operator" : "and"
+            }
+        }
+    }
+}
+
+Which blogs have performance or optimizations or improvements in the content field?"
+GET blogs/_search
+{
+    "query": {
+        "match" : {
+            "content" : {
+                "query" : "performance optimizations improvements",
+                "operator" : "or"
+            }
+        }
+    }
+}
+
+has at least two of the search terms
+GET blogs/_search
+{
+    "query": {
+        "match" : {
+            "content" : {
+                "query" : "performance optimizations improvements",
+                "operator" : "or",
+                "minimum_should_match":2
+            }
+        }
+    }
+}
+
+
+GET blogs/_search
+{
+    "query": {
+        "match" : {
+            "content": {
+                "query" : "search analytics",
+                "operator" : "and"
+            }
+        }
+    }
+    
+}
+
+top 3 hits
+
+GET blogs/_search
+{
+  "size":3,
+    "query": {
+        "match_phrase" : {
+            "content": {
+                "query" : "search analytics"
+            }
+        }
+    }
+    
+}
+
+account for a word in between the search terms
+GET blogs/_search
+{
+  "size":3,
+    "query": {
+        "match_phrase" : {
+            "content": {
+                "query" : "search analytics",
+                "slop": 1
+            }
+        }
+    }
+    
+}
+
+GET blogs/_search
+{
+  "size":3,
+    "query": {
+        "match_phrase" : {
+            "content": {
+                "query" : "open source"
+            }
+        }
+    }
+    
+}
+
+top 3 hits
+GET blogs/_search
+{
+  "size":3,
+    "query": {
+        "match_phrase" : {
+            "title": {
+                "query" : "open source"
+            }
+        }
+    }
+    
+}
+
+multi-match
+GET blogs/_search
+{
+  "query": {
+    "multi_match" : {
+      "query":    "open source", 
+      "fields": [ "title", "content" ] 
+    }
+  }
+}
+
+field boosting
+GET blogs/_search
+{
+  "query": {
+    "multi_match" : {
+      "query":    "open source", 
+      "fields": [ "title^2", "content" ] 
+    }
+  }
+}
+
+
+GET blogs/_search
+{
+  "query": {
+    "multi_match" : {
+      "query":    "open source", 
+      "fields": [ "title.keyword", "content.keyword" ]
+    }
+  }
+}
+
+make it a phrase multi-match
+GET blogs/_search
+{
+  "query": {
+    "multi_match" : {
+      "query":    "open source", 
+      "fields": [ "title", "content" ],
+      "type": "phrase"
+    }
+  }
+}
+
+fuzziness, mispellings
+adding the fuzziness parameter, permitting a maximum of 2 edits per word
+GET blogs/_search
+{
+  "_source": "title",
+  "query": {
+    "match": {
+      "title": {
+        "query": "open source",
+        "fuzziness": 2
+      }
+    }
+  }
+}
+
+
+fuzziness of auto has less hits but more precise
+
+Lab 2.3 
+Which blogs have a content field that includes at least 2 of the terms performance or optimizations or improvements?
+**NEED TO MEMORIZE EXAMPLES OF BOOLEAN SHOULD/MUST and MUST_NOT
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match": {
+            "content": "performance"
+          }
+        },
+        {
+          "match": {
+            "content": "optimizations"
+          }
+        },
+        {
+          "match": {
+            "content": "improvements"
+          }
+        }
+      ],
+      "minimum_should_match": 2
+    }
+  }
+}
+
+    "should" : [
+        { "term" : { "tag" : "wow" } },
+        { "term" : { "tag" : "elasticsearch" } }
+      ],
+
+
+
+Assuming that you are not interested in upgrading your deployment, change the previous query (the should version) so that it must_not contain "released" or "releases" or "release" in the title field. Your top hits look better now
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must_not": [
+        {
+          "match": {
+            "title": "released release releases"
+          }
+        }
+      ], 
+      "should": [
+        
+        {
+          "match": {
+            "content": "performance"
+          }
+        },
+        {
+          "match": {
+            "content": "optimizations"
+          }
+        },
+        {
+          "match": {
+            "content": "improvements"
+          }
+        }
+      ],
+      "minimum_should_match": 2
+    }
+  }
+}
+
+
+GET blogs/_validate/query?rewrite=true
+{
+  "query": {
+    "bool": {
+      "should": [
+        
+        {
+          "match": {
+            "content": "performance"
+          }
+        },
+        {
+          "match": {
+            "content": "optimizations"
+          }
+        },
+        {
+          "match": {
+            "content": "improvements"
+          }
+        }
+      ],
+      "minimum_should_match": 2
+    }
+  }
+}
+
+GET blogs/_validate/query?rewrite=true
+{
+  "query": {
+    "match": {
+      "content": {
+        "query" : "performance optimizations improvements",
+        "minimum_should_match" : 2
+      }
+    }
+  }
+}
+
+Lucene query is : "explanation" : "(content:performance content:optimizations content:improvements)~2"
+
+
+Lab 2.4
+update the query to account for when use selects Category: News
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": ["title", "content"]
+          }
+        }
+      ],
+      "filter": {
+          "match": {
+            "category.keyword": "News"
+          }
+        }
+    }
+  }
+}
+
+
+
+JUST MEMORIZE THIS ONE
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": [
+              "title",
+              "content"
+            ]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "bool": {
+            "should": [
+              {
+                "match": {
+                  "category.keyword": "News"
+                }
+              },
+              {
+                "match": {
+                  "category.keyword": "Culture"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+
+
+Term level queries
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": [
+              "title",
+              "content"
+            ]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "terms": {
+            "category.keyword": [
+              "News",
+              "Culture"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+
+specific only from 2017
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": [
+              "title",
+              "content"
+            ]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "terms": {
+            "category.keyword": [
+              "News",
+              "Culture"
+            ]
+          }
+        },
+        {
+          "range": {
+            "publish_date": {
+              "gte": "2017-01-01",
+              "lt": "2018-01-01"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+
+
+GET blogs/_search
+{
+  "size": 3,
+  "from": 9,
+  "_source": {
+    "excludes": "content"
+  },
+  "sort": [
+    {
+      "author.keyword": {
+        "order": "asc"
+      }
+    },
+    {
+      "publish_date": {
+        "order": "desc"
+      }
+    }
+  ],
+  "query": {
+    "match_phrase": {
+      "content": "elastic stack"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "content": {}
+    },
+    "pre_tags": [
+      "<mark>"
+    ],
+    "post_tags": [
+      "</mark>"
+    ]
+  }
+}
+
+Two ways to specify the pre tags and post tags
+highlight" : {
+  "fields" : {
+    "content" : { "pre_tags" : ["<mark>"], "post_tags" : ["</mark>"] }
+  }
+}
+
+"highlight": {
+    "fields": {
+      "content": {}
+    },
+    "pre_tags": [
+      "<mark>"
+    ],
+    "post_tags": [
+      "</mark>"
+    ]
+  }
+
+
+GET logs_server*/_search
+{
+  "size": 2, 
+  "query": {
+    "match_all": {}
+  }
+}
+Lab 3.1
+One way to find the log with fastest run time (sort)
+GET logs_server*/_search
+{
+  "size": 2,
+  "_source": {
+    "includes": "runtime_ms"
+  },
+  "query": {
+    "match_all": {}
+  },
+  "sort": [
+    {
+      "runtime_ms": {
+        "order": "asc"
+      }
+    }
+  ]
+}
+"runtime_ms" : 59756
+
+Fastest
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "fastest_runtime": {
+      "min": {
+        "field": "runtime_ms"
+      }
+    }
+  }
+}
+  
+SLOWEST  
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "slowest_request_time": {
+      "max": {
+        "field": "runtime_ms"
+      }
+    }
+  }
+}
+  
+STATS MIN MAX and AVG
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "speed_stats": {
+      "stats": {
+        "field": "runtime_ms"
+      }
+    }
+  }
+}
+
+whats the speed that 95% of logs are faster than?
+GET logs_server*/_search
+{
+    "size": 0,
+    "aggs" : {
+        "runtime_ms_outlier" : {
+            "percentiles" : {
+                "field" : "runtime_ms",
+                "percents" : [95] 
+            }
+        }
+    }
+}
+
+
+INTERPRET THE FOLLOWING 
+95% are below 684 and 96% take less than 1256 seconds
+values" : {
+  "95.0" : 684.8804112035199,
+  "96.0" : 1256.9480499052197
+}
+      
+GET logs_server*/_search
+{
+    "size": 0,
+    "aggs" : {
+        "runtime_ms_outlier" : {
+            "percentiles" : {
+                "field" : "runtime_ms",
+                "percents" : [50,90, 93,94,95] 
+            }
+        }
+    }
+}
+
+double check the percentile of a value, to answer--what percent of logs have  a runtime below 500 ms?
+GET logs_server*/_search
+{
+    "size": 0,
+    "aggs" : {
+        "runtime_ms_outlier" : {
+            "percentile_ranks" : {
+                "field" : "runtime_ms", 
+                "values" : [500]
+            }
+        }
+    }
+}
+
+
+how many unqiue originalUrls?
+GET logs_server*/_search
+{ "size": 0,
+    "aggs" : {
+        "type_count" : {
+            "cardinality" : {
+                "field" : "originalUrl.keyword"
+            }
+        }
+    }
+}
+
+how many UNIQUE urls?
+GET logs_server*/_search
+{ "size": 0,
+    "aggs" : {
+        "type_count" : {
+            "cardinality" : {
+                "field" : "originalUrl.keyword"
+            }
+        }
+    }
+}
+DELETE
+
+Lab 3.2
+
+AGGREGATIONS
+
+GET logs_server*/_search
+{
+  "size": 0,
+    "aggs" : {
+        "status_codes" : {
+            "terms" : { "field" : "status_code" } 
+        }
+    }
+}
+
+instead of default sorting by doc_count, make it sorted by status_code alphabetically.
+GET logs_server*/_search
+{
+  "size": 0,
+    "aggs" : {
+        "status_codes" : {
+            "terms" : { "field" : "status_code" },
+            "order" : { "_key" : "asc" }
+        }
+    }
+}
+
+
+add to the query, top category buckets
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": {
+        "multi_match": {
+          "query": "open source",
+          "fields": [
+            "title^2",
+            "content"
+          ],
+          "type": "phrase"
+        }
+      }
+    }
+  },
+  "aggs": {
+    "hits_per_category": {
+      "terms": {
+        "field": "category"
+      }
+    }
+  }
+}
+
+
+GET logs_server*/_search
+{
+  "size": 0,
+    "aggs" : {
+        "response_sizes" : {
+            "histogram" : {
+                "field" : "response_size",
+                "interval" : 1000
+            }
+        }
+    }
+}
+
+
+ log requests per week
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "log_requests_over_time": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "calendar_interval": "week"
+      }
+    }
+  }
+}
+
+Lab 3.3
+
+For each week of blog requests, how many requests were received from each of the 6 values of status_code?
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "log_requests_over_time": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "calendar_interval": "week"
+      }, 
+      "aggs": {
+        "status_code_buckets": {
+          "terms": {
+            "field": "status_code",
+            "size": 6
+          }
+        }
+      }
+    }
+  }
+}
+NESTED AGGREGATIONS
+
+What is the median runtime for each status_code? 
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "status_code_buckets": {
+      "terms": {
+        "field": "status_code"
+      },
+      "aggs" : {
+        "run_time_outlier" : {
+            "percentiles" : {
+                "field" : "runtime_ms",
+                "percents" : [50] 
+            }
+        }
+      }
+    }
+  }
+}
+
+What are the top 3 URLs accessed from each of the top 20 cities?
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "top_cities": {
+      "terms": {
+        "field": "city.keyword",
+        "size": 20
+      },
+      "aggs" : {
+        "top_urls" : {
+          "terms": {
+            "field": "originalURL.keyword",
+            "size": 3
+          }
+        }
+      }
+    }
+  }
+}
+
+Change the terms aggregation of the top 3 URLs to a significant_terms aggregation and compare the results of the two different queries,  less generic and more specific topics.
+
+GET logs_server*/_search?size=0
+{
+  "aggs": {
+    "top_cities": {
+      "terms": {
+        "field": "city.keyword",
+        "size": 20
+      },
+      "aggs" : {
+        "top_urls" : {
+          "significant_terms": {
+            "field": "originalURL.keyword",
+            "size": 3
+          }
+        }
+      }
+    }
+  }
+}
+Write a query that searches for "elasticsearch siem" in the content field and use this scope of documents to list only the title field of the top three blogs of each one of the top 5 categories.
+GET logs_server*/_search?size=0
+{
+  
+  "query": {
+    "match": {
+      "content": "elasticsearch siem"
+    }
+  },
+  "aggs": {
+    "top_5_catagories": {
+      "terms": {
+        "field": "category.keyword",
+        "size": 5
+      }
+    },
+    "aggs" : {
+        "top_title" : {
+          "significant_terms": {
+            "field": "title.keyword",
+            "size": 3,
+            "_source": "title"
+          }
+        }
+      }
+  }
+}
+
+
+
+

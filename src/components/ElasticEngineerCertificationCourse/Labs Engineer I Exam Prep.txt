@@ -1,0 +1,776 @@
+
+START START
+
+PUT my_blogs
+PUT my_blogs/_doc/1
+{
+  "id": "1",
+  "title": "Better query execution",
+  "category": "Engineering",
+  "date":"July 15, 2015",
+  "author":{
+    "first_name": "Adrien",
+    "last_name": "Grand",
+    "company": "Elastic"
+  }
+}
+
+PUT my_blogs/_doc/2
+{
+  "id": "2",
+  "title": "The Story of Sense",
+  "date":"May 28, 2015",
+  "author":{
+    "first_name": "Boaz",
+    "last_name": "Leskes"
+  }
+}
+
+EXAM PREP: The index operation can also be executed without specifying the _id. In such a case, you use a POST instead of a PUT and an _id will be generated automatically. Index the following document without an id and check the _id in the response. (Make sure you use POST.)
+
+
+
+POST my_blogs/_doc
+{
+  "id": "57",
+  "title": "Phrase Queries: a world without Stopwords",
+  "date":"March 7, 2016",
+  "category": "Engineering",
+  "author":{
+    "first_name": "Gabriel",
+    "last_name": "Moskovicz"
+  }
+}
+
+
+GET my_blogs/_doc/HNdaVHIBsL4_UaMSatBl
+GET my_blogs/_doc/1
+DELETE my_blogs/_doc/1
+
+POST my_blogs/_doc
+{
+  "id": "20",
+  "title": "Source",
+  "date":"March 7, 2016",
+  "category": "Engineering",
+  "author":{
+    "first_name": "Gabriel",
+    "last_name": "Moskovicz"
+  }
+}
+
+POST my_blogs/_doc
+{
+  "id": "21",
+  "title": "Source",
+  "date":"March 7, 2016",
+  "content": "open source",
+  "author":{
+    "first_name": "Gabriel",
+    "last_name": "Moskovicz"
+  }
+}
+
+
+EXAM PREP: Modify your multi_match query by giving the title field a boost of 2. How does the score of the top hit compare to the previous query without the boost?
+
+
+GET my_blogs/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "open source",
+      "fields": [
+        "title^2",
+        "content"
+      ]
+    }
+  }
+}
+
+
+EXAM PREP: Boost affects the score without impacting recall or precision. Remove the boost and modify your multi_match query --> to perform a phrase query, which increases precision (perhaps at the expense of recall). Did the increase in precision return more or fewer hits?
+
+GET my_blogs/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "open source",
+      "fields": [
+        "title",
+        "content"
+      ],
+      "type": "phrase"
+    }
+  }
+}
+EXAM PREP: Try increasing the recall (perhaps at the expense of precision) by adding the fuzziness parameter, permitting a maximum of 2 edits per word. Did the increased recall return more of fewer hits? How relevant are they?
+
+
+GET my_blogs/_search
+{
+  "_source": "title",
+  "query": {
+    "match": {
+      "title": {
+        "query": "oven sauce",
+        "fuzziness": 2
+      }
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "_source": "title",
+  
+  "query": {
+
+    "match": {
+      "title": "oven sauce"
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "_source": "title",
+  "query": {
+    "match": {
+      "query": {
+        "text": "oven sauce",
+        "field": "title",
+        "fuzziness": 2
+      }
+    }
+  }
+}
+Lab 2.3
+EXAM PREP: It looks like releases usually come with performance optimizations and improvements. Assuming that you are not interested in upgrading your deployment, change the previous query (the should version) so that it 
+
+must_not contain "released" or "releases" or "release" in the title field. 
+
+Your top hits look better now, and notice the number of total hits dropping down to 47.
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must_not": [
+        {
+          "match": {
+            "title": "released releasesrelease"
+          }
+        }
+      ], 
+      "should": [
+        {
+          "match": {
+            "content": "performance"
+          }
+        },
+        {
+          "match": {
+            "content": "optimizations"
+          }
+        },
+        {
+          "match": {
+            "content": "improvements"
+          }
+        }
+      ],
+      "minimum_should_match": 2
+    }
+  }
+}
+
+EXAM PREP: In the previous query, let’s say you are more interested in blogs about Elasticsearch. How could you rank the results so that the documents that mention 
+
+"elasticsearch" in the title score higher? (TIP: you must have two separate should clauses. One clause with a minimum_should_match will work like a must. The other clause will influence the score.)
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "bool": {
+            "should": [
+            {
+              "match": {
+                "content": "performance"
+              }
+            },
+            {
+              "match": {
+                "content": "optimizations"
+              }
+            },
+            {
+              "match": {
+                "content": "improvements"
+              }
+            }
+          ],
+          "minimum_should_match": 2
+          }
+          
+        }
+      ],
+      "should": [
+        {
+          "match": {
+            "title": "elasticsearch"
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "match": {
+            "title": "released releasesrelease"
+          }
+        }
+      ]
+    }
+  }
+}
+
+Lab 2.4
+EXAM PREP: Next, imagine the user also selected Culture on the left side bar. Update the query above to add the new user selection. The result should be 7 documents. (TIP: you need to implement an OR logic combined with an AND logic. Which boolean query allows you to run ORs?)
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      
+      "minimum_should_match": 1,
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": [
+              "title",
+              "content"
+            ]
+          }
+        }
+      ],
+      "filter": {
+        "bool": {
+          "should": [
+            {
+              "match": {
+                "category.keyword": "News"
+              }
+            },
+            {
+              "match": {
+                "category.keyword": "Culture"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+EXAM PREP: Next, imagine the user adds a date to the search, so only blogs published in 2017 are returned. Update the query above to only return blogs published in 2017. The result should be 2 documents.
+
+
+GET blogs/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": [
+              "title",
+              "content"
+            ]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "terms": {
+            "category.keyword": [
+              "News",
+              "Culture"
+            ]
+          }
+        },
+        "range": {
+          "date_published": {
+            "gte": "2017-01-01",
+            "lt": "2018-01-01"
+          }
+        },
+      ]
+    }
+  }
+}
+
+#13
+EXAM PREP: Modify your previous query so that the results are sorted first by author name ascending, and then from newest to oldest.
+
+"sort": [
+    { "account_number": "asc" }
+  ]
+GET blogs/_search
+{
+  "query": {
+    "match_phrase": {
+      "content": {
+        "query" : "elastic stack"
+      }
+    }
+  },
+  "sort": [
+    {
+      "author.keyword": {
+        "order": "asc"
+      }
+    },
+    {
+      "publish_date": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+
+EXAM PREP: Suppose a user clicks on page 4 of the search results from your previous query. Write a query that returns the 3 hits of page 4.
+
+GET blogs/_search
+{
+  "size": 3,
+  "from": 9, 
+  "query": {
+    "match_phrase": {
+      "content": {
+        "query" : "elastic stack"
+      }
+    }
+  },
+    "highlight" : {
+        "pre_tags" : ["<mark>"],
+        "post_tags" : ["</mark>"],
+        "fields" : {
+            "content" : {}
+        }
+    },
+  "sort": [
+    {
+      "author.keyword": {
+        "order": "asc"
+      }
+    },
+    {
+      "publish_date": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+
+Lab 3.1
+EXAM PREP: Add a query that limits the scope of your aggregation in the previous step to only documents that 
+contain the term "elastic" in the originalUrl field. You should get around 4,500 as the result.
+GET logs_server*/_search
+{
+  "size": 0,
+  "query": {
+    "match": {
+      "originalUrl": "elastic"
+    }
+  }, 
+  "aggs": {
+    "my_url_value_count": {
+      "cardinality": {
+        "field": "originalUrl.keyword"
+      }
+    }
+  }
+}
+
+EXAM PREP: A terms aggregation is sorted by doc_count by default. Modify your previous search so that its terms are sorted alphabetically.
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_code_buckets": {
+      "terms": {
+        "field": "status_code",
+        "order": {
+          "_term": "asc"
+        }
+      }
+    
+    }
+  }
+}
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "runtime_histogram": {
+      "histogram": {
+        "field": "response_size",
+        "interval": 10000,
+        "min_doc_count": 1000
+      }
+    }
+  }
+}
+
+EXAM PREP: For each week of blog requests, how many requests were received from each of the 6 values of status_code?
+
+GET log_server/_search
+{
+  "aggs": {
+    "weekly_logs": {
+      "date_histogram": {
+        "field": "date",
+        "interval": "week"
+      },
+      "aggs": {
+        "top_status_codes": {
+          "terms": {
+            "field": "status_code",
+            "size": 6
+          }
+        }
+      }
+    }
+  }
+}
+
+EXAM PREP: What is the median runtime for each status_code? (TIP: This is not per week.)
+
+GET log_server/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_code_bucket": {
+      "terms": {
+        "field": "status_code"
+      }, 
+      "aggs": {
+        "median_runtime": {
+          "percentiles": {
+            "field": "runtime_ms",
+            "percents": [
+              50
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+
+
+
+EXAM PREP: What are the top 3 URLs accessed from each of the top 20 cities? Analyze the results closely and notice there is a common set of URLs for most cities.
+
+GET loglevel_test1/_search?size=0
+{
+  "aggs": {
+    "top_20_cities": {
+      "terms": {
+        "field": "city",
+        "size": 20
+      },
+      "aggs": {
+        "top_urls": {
+          "terms": {
+            "field": "originalUrl.keyword",
+            "size": 3
+          }
+        }
+      }
+    }
+  }
+}
+
+EXAM PREP: Write a query that searches for "elasticsearch siem" in the content field and use this scope of documents to list only the 
+title field of the top three blogs of each one of the top 5 categories.
+
+
+GET my_blogs/_search
+{
+  "size": 0,
+  "query": {
+    "match": {
+      "content": "elasticsearch siem"
+    }
+  },
+  "aggs": {
+    "top5_categories": {
+      "terms": {
+        "field": "category.keyword",
+        "size": 5
+      },
+      "aggs": {
+        "top3_blogs": {
+          "top_hits": {
+            "size": 3,
+            "_source": ["title"]
+          }
+        }
+      }
+    }
+  }
+}
+
+
+GET my_blogs/_search
+{
+  "query": {
+    "match": {
+      "content": "elasticsearch siem" 
+    }
+  },
+  "aggs": {
+    "top_categories": {
+      "terms": {
+        "field": "category.keyword",
+        "size": 5
+      },
+      "aggs": {
+        "top_titles": {
+          "top_hits": {
+            "size": 3,
+            "_source": {"includes": "title"}
+          }
+        }
+      }
+    }
+  }
+}
+#23
+EXAM PREP: Create a new index my_logs with the ip field mapped explicitly as type ip.
+
+
+PUT my_logs
+{
+  "mapping": {
+    "properties": {
+      "ip": {
+        "type": "ip"
+      }
+    }
+  }
+}
+
+EXAM PREP: Add a new field named title to the mapping of the tmp_index index. Map the field as type text, with the english analyzer.
+
+PUT tmp_index/_mapping
+{
+   "properties": {
+      "title": {
+        "type": "text",
+        "analyzer": "english"
+      }
+    }
+}
+
+EXAM PREP: Update the mappings for the logs_fixed index (that you created in the last lab) with a dynamic template:
+
+that matches all unmapped fields with a value of JSON type string
+
+and maps those as type keyword
+
+PUT logs_fixed
+{
+  "mappings": {
+    "dynamic_templates": [
+      
+      {
+        "strings": {
+          "match_mapping_type": "string",
+          "mapping": {
+           "type":  "keyword"
+          }
+        }
+      }
+    ]
+  }
+}
+EXAM PREP: With the mappings for the logs_fixed index in place, let’s populate the index. Copy over all documents from the logs_server1 index to the logs_fixed index by using the _reindex API:
+
+
+POST _reindex
+{
+  "source": {
+    "index": "logs_server1"
+  },
+  "dest": {
+    "index": "logs_fixed"
+  }
+}
+
+EXAM PREP: Let’s review some of the mapping parameters, like copy_to and defining default null values. 
+
+#27
+Create a new index named surveys that is going to hold some survey results. Create the index with only four fields in its mapping:
+
+A field named all_feedback of type text
+
+A field named instructor_feedback of type text that gets copied to the all_feedback field
+
+A field named labs_feedback of type text that is also copied to the all_feedback field
+
+A field named course_rating of type integer in which null values default to 1, and also has coercion disabled
+
+PUT surveys/_mapping
+{
+  "properties": {
+    "all_feedback": {
+      "type": "text"
+    },
+     "instructor_feedback": {
+      "type": "text",
+      "copy_to": "all_feedback"
+    },
+    "labs_feedback": {
+      "type": "text",
+      "copy_to": "all_feedback"
+    },
+    "course_rating": {
+      "type": "integer",
+      "null_values": 1,
+      "coerce": false
+    }
+  }
+}
+
+#28
+EXAM PREP: Then, configure the node settings in the appropriate config files (either elasticsearch.yml or jvm.options) to have the following:
+
+it joins my_cluster
+
+the name of the node is node3
+
+binds and publishes both the transport and HTTP protocols to the site-local address
+
+set the min and max heap size to 512m
+
+cluster.name: my_cluster
+node.name: node3
+network.host: _site_
+
+-Xms512m
+-Xmx512m
+
+
+EXAM PREP: Next, update the node settings to have the following:
+
+node1 is the only initial master node in the cluster
+
+it discovers the cluster via server1, server2, or server3
+
+cluster.initial_master_nodes: node1
+discovery.seed_hosts: 
+
+~~~~~~
+GOT THESE ONES WRONG
+
+Lab 2.2
+Transform this query into one with fuzziness of 2
+GET blogs/_search
+{
+  "_source": "title",
+  "query": {
+    "match": {
+      "title": "oven sauce"
+    }
+  }
+}
+ANSWER SOLUTION
+
+GET my_blogs/_search
+{
+  "_source": "title",
+  "query": {
+    "match": {
+      "title": {
+        "query": "oven sauce",
+        "fuzziness": 2
+      }
+    }
+  }
+}
+
+EXAM PREP: In the previous query, let’s say you are more interested in blogs about Elasticsearch. How could you rank the results so that the documents that mention 
+
+"elasticsearch" in the title score higher? (TIP: you must have two separate should clauses. One clause with a minimum_should_match will work like a must. The other clause will influence the score.)
+
+How to have multiple should in the same bool
+query: bool must bool should
+GET my_blogs/_search
+{
+  "query": {
+    "bool": {
+        "must": [
+          {
+            "bool": {
+              "should": [
+                {}
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+What if you wanted a user selected a 2nd Category on the search page?
+Inside the filter, you can nest a bool should: [match or match]
+
+
+How to sort the terms agg buckets by the term instead of the doc count (_term v _key)
+
+EXAM PREP: A terms aggregation is sorted by doc_count by default. Modify your previous search so that its terms are sorted alphabetically.
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_code_buckets": {
+      "terms": {
+        "field": "status_code",
+        "order": {
+          "_term": "asc"
+        }
+      }
+    
+    }
+  }
+}
+
+EXAM PREP: A terms aggregation is sorted by doc_count by default. Modify your previous search so that its terms are sorted alphabetically.
+
+GET logs_server*/_search
+{
+  "size": 0,
+  "aggs": {
+    "status_code_buckets": {
+      "terms": {
+        "field": "status_code",
+        "order": {
+          "_key": "asc"
+        }
+      }
+    
+    }
+  }
+}
+For full-text queries, how to nest a should in a filter clause and two should clauses in a bool query (one with a min should match, one without). add fuzziness to a match query
+For aggregations: how to order by term in a terms agg, how to include only the title from the source in a top hits agg, when to use top_hits

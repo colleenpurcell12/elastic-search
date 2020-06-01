@@ -1,0 +1,60 @@
+Lab 4.1: Cluster Backup
+
+Bring down nodes (node1 last)
+in CLI
+mkdir /shared_folder/my_repo
+
+add to each node yml file
+Add the following path.repo property to the elasticsearch.yml files of node1, node2 and node3:
+
+path.repo: /shared_folder/my_repo
+
+start all nodes back up, node1 first
+PUT _snapshot/my_local_repo
+{
+  "type": "fs",
+  "settings": {
+    "location": "/shared_folder/my_repo"
+  }
+}
+
+EXAM examples of transient and persistent
+PUT _cluster/settings
+{
+  "transient": {
+    "cluster.routing.allocation.enable" : "none"
+  }
+}
+
+PUT _cluster/settings
+{
+  "transient": {
+    "cluster.routing.allocation.enable": "all"
+  }
+}
+
+
+POST _snapshot/my_local_repo/cluster_snapshot_1
+{
+  "indices": "logs_server-*",
+  "ignore_unavailable": true,
+  "include_global_state": true
+}
+
+GET _snapshot/my_local_repo/_all
+
+Restore the logs_server* indices using your snapshot from the previous step. 
+Do not restore the cluster state (your current cluster state is fine). 
+Rename the indices as they get restored to restored_logs_1, restored_logs_2 and 
+restored_logs_3.
+
+POST _snapshot/my_local_repo/cluster_snapshot_1/_restore
+{
+  "indices": "logs_server*",
+  "ignore_unavailable": true,
+  "include_global_state": false,
+  "rename_pattern": "logs_server(.+)",
+  "rename_replacement": "restored_logs_$1"
+}
+
+GET _cat/indices?v

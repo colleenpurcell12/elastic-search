@@ -1,0 +1,218 @@
+
+Lab 2.2: Ingest Nodes and Pipelines
+Run the following terms aggregation and analyze the results. 
+
+GET blogs_fixed1/_search
+{
+  "size": 0,
+  "aggs": {
+    "locale_terms": {
+      "terms": {
+        "field": "locales",
+        "size": 10
+      }
+    }
+  }
+}
+
+What could be improved on the locales field?
+the locals field values should be an array
+"key" : "de-de,fr-fr,ja-jp,ko-kr",
+~~~
+EXAM PREP: The locales field is empty for 1,290 documents, which is over 90% of the index. These particular documents should have the English locale "en-en". Also, as discussed in the lecture, this field would be much easier to search and aggregate on if it was indexed as an array instead of a single comma-separated list of values. To fix locales, write a pipeline that satisfies the following criteria:
+
+The name of the pipeline is fix_locales
+
+The first processor is a set processor that checks if the locales field is an empty string. If it is empty, assign it the value "en-en". If it is not empty, leave the field as is. TIP: To check if a field is empty you can use ctx['field'].empty in the if option of your processor.
+
+The second set processor should set reindexBatch to 3 for every document
+
+The third processor is a split processor that splits the locales field into an array, using a comma as the separator
+
+
+PUT _ingest/pipeline/fix_locales
+{
+  "description": "make the locals field with empty string into en-en as a default",
+  "processors": [
+    {
+      "set": {
+        "if": "ctx['locales'].empty",
+        "field": "locales",
+        "value": "en-en"
+      }
+    },
+    {
+      "set": {
+        "field": "reindexBatch",
+        "value": "3"
+      }
+    },
+    {
+      "split": {
+        "field": "locales",
+        "separator": ","
+      }
+    }
+  ]
+}
+
+Test two documents on your fix_locales pipeline:
+
+POST /_ingest/pipeline/fix_locales/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "locales": "de-de,fr-fr,ja-jp,ko-kr"
+      }
+    },
+    {
+      "_source": {
+        "locales": ""
+      }
+    }
+  ]
+}
+
+EXAM PREP: Using an _update_by_query, update all documents in blogs_fixed with a reindexBatch equal to 2. Use the fix_locales pipeline to update the documents.
+
+POST blogs_fixed1/_update_by_query?pipeline=fix_locales
+{
+  "query": {
+    "match": {
+      "reindexBatch": 2
+    }
+  }
+}
+
+OPTIONAL: Check the stats of your pipeline by running the following query.
+
+GET _nodes/stats/ingest?filter_path=nodes.*.ingest.pipelines.fix_locales
+
+
+
+GET blogs_fixed1/_search?size=0
+{
+  "aggs": {
+    "locale_terms": {
+      "terms": {
+        "field": "locales",
+        "size": 10
+      }
+    }
+  }
+}
+
+RESPONSE:
+"aggregations": {
+    "locale_terms": {
+      "doc_count_error_upper_bound": 0,
+      "sum_other_doc_count": 0,
+      "buckets": [
+        {
+          "key": "en-en",
+          "doc_count": 1290
+        },
+        {
+          "key": "fr-fr",
+          "doc_count": 43
+        },
+        {
+          "key": "de-de",
+          "doc_count": 41
+        },
+        {
+          "key": "ko-kr",
+          "doc_count": 37
+        },
+        {
+          "key": "ja-jp",
+          "doc_count": 34
+        },
+        {
+          "key": "zh-chs",
+          "doc_count": 8
+        }
+      ]
+    }
+  }
+
+
+GET blogs_fixed/_search
+{
+  "size": 100,
+  "_source": "locales"
+}
+
+
+PUT _ingest/pipeline/underscore_locales
+{
+  "description" : "changes en-en to en_en",
+  "processors" : [
+    {
+      "foreach" : {
+        "field": "locales",
+        "processor": {
+          "gsub": {
+            "field": "_ingest._value",
+            "pattern": "-",
+            "replacement": "_"
+          }
+        }
+      }
+    },
+    {
+      "set" : {
+        "field": "reindexBatch",
+        "value": "4"
+      }
+    }
+  ]
+}
+
+POST /_ingest/pipeline/underscore_locales/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "locales": [
+          "de-de",
+          "fr-fr",
+          "ja-jp",
+          "ko-kr",
+          "zh-chs"
+        ]
+      }
+    }
+  ]
+}
+
+
+RESPONSE 
+"_source" : {
+  "locales" : [
+    "de_de",
+    "fr_fr",
+    "ja_jp",
+    "ko_kr",
+    "zh_chs"
+  ],
+  "reindexBatch" : 4
+}
+
+
+
+POST blogs_fixed1/_update_by_query?pipeline=underscore_locales
+{
+  "query": {
+    "match": {
+      "reindexBatch": 3
+    }
+  }
+}
+
+GET blogs_fixed1/_search
+{
+  "size": 100,
+  "_source": "locales"
+}

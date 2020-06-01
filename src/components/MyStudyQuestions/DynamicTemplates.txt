@@ -1,0 +1,48 @@
+Section: Dynamic Templates
+
+Create a index named test_dynam_template that maps field names matching the pattern _code to keyword, and all other strings to both text and keyword
+
+Answer
+PUT test_dynam_template
+{
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "codes": {
+          "match_mapping_type": "string",
+          "match": "*_code",
+          "mapping": {
+            "type": "keyword"
+          }
+        }
+      },
+      {
+        "strings": {
+          "match_mapping_type": "string",
+          "unmatch": "*_code",
+          "mapping": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+
+Now test the new index's dynamic mapping by adding this document
+
+POST test_dynam_template/_doc
+{
+  "transaction_code": "12345",
+  "title": "purchase"
+}
+
+Verify that transaction_code was mapped as a type keyword field and title was mapped as both text and keyword
+
+Answer
+GET test_dynam_template

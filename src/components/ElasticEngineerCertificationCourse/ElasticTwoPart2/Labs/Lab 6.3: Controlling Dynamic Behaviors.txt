@@ -1,0 +1,194 @@
+Lab 6.3: Controlling Dynamic Behaviors
+
+THIS WORKDS
+PUT dynamic_test/_doc/1
+{
+  "my_field": "A value"
+}
+
+clear
+DELETE dynamic_test
+
+now block new indices from being created when a doc is indexed to a new index
+PUT _cluster/settings
+{
+  "persistent": {
+    "action.auto_create_index": false
+  }
+}
+
+NOW THIS FAILS: "type": "index_not_found_exception"
+PUT dynamic_test/_doc/1
+{
+  "my_field": "A value"
+}
+
+Create the index dynamic_test with one field my_field of type text. 
+And then execute the previous indexation. The indexation should succeed.
+==> explicit index creation specifying mapping instead of indexing a doc still works
+PUT dynamic_test
+{
+  "mappings": {
+    "properties": {
+      "my_field": {
+        "type": "text"
+      }
+    }
+  }
+}
+
+clear
+DELETE dynamic_test
+
+Whitelist the pattern dynamic_test along with all the X-Pack indices.
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "action.auto_create_index" : "dynamic_test,.monitoring*,.watches,.triggered_watches,.watcher-history*,.ml*"
+  }
+}
+
+Which one will fail? the 1st one cause ^ we white listed the 2nd
+#1
+PUT dynamic/_doc/1
+{
+  "my_field": "A value"
+}
+
+#2
+PUT dynamic_test/_doc/1
+{
+  "my_field": "A value"
+}
+
+EXAM PREP: Next, you are going to work with dynamic templates. Create a new index named surveys that satisfies the following criteria:
+
+The job_title field is mapped as text and keyword
+
+The miles_travelled field is mapped as an integer_range
+
+Any field name that ends in _rating is dynamically mapped as an integer
+
+Any string field that is not already in the mapping is dynamically mapped as keyword only, and is not indexed
+
+
+*not sure if order of properties v dynamic_mappings matter but maybe one overrides the latter
+
+PUT surveys
+{
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "undefined_string_fields": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "keyword",
+            "index": false
+          }
+        }
+      },
+      {
+        "rating_fields": {
+          "match": "*_rating",
+          "mapping": {
+            "type": "integer"
+          }
+        }
+      }
+    ],
+    "properties": {
+      "job_title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "miles_travelled": {
+        "type": "integer_range"
+      }
+    }
+  }
+}
+
+Put the following survey response in your surveys index. You will need to modify the miles_travelled field so that it is in the appropriate format for an integer_range:
+{
+  "job_title": "Elasticsearch Engineer",
+  "course_rating": 9,
+  "comments": "Great class. I want to get certified now!",
+  "miles_travelled": "0-25"
+}
+
+
+Answer:
+PUT surveys/_doc/1
+{
+  "job_title": "Elasticsearch Engineer",
+  "course_rating": 9,
+  "comments": "Great class. I want to get certified now!",
+  "miles_travelled":{
+    "gte" : 0,
+    "lte" : 25
+  }
+}
+
+Add this and check how it was dynamically mapped
+PUT surveys/_doc/2
+{
+  "job_title": "Software Engineer",
+  "labs_rating": 10,
+  "city": "Berlin",
+  "miles_travelled": {
+    "gt": 50,
+    "lte": 100
+  }
+}
+
+GET surveys/_mapping
+-->shows that _ratings are integer (not long) and strings are keyword (not text)
+
+
+Finally, you are going to work with dynamic fields. Create a new index named surveys2 that has only two fields in its mapping:
+
+A field named feedback of type text
+
+A field named course_rating of type integer
+
+In addition, configure the mapping so that it will not be changed by unexpected fields and any documents with unexpected fields will fail to be indexed
+
+
+PUT surveys2
+{
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "feedback": {"type": "text"},
+      "course_rating": {"type": "integer"}
+    }
+  }
+}
+
+What will happen? it will fail since no new fields allow with dynamic: strict to prevent mapping explosion
+PUT surveys2/_doc/1
+{
+  "food_rating": 10
+}
+
+PUT surveys2/_settings
+{
+  "index.mapping.total_fields.limit": 10
+}
+
+How to find out which are the systems indices?
+GET _cat/indices?v&h=index&s=index
+GET _cat/indices?v&s=index
+
+
+.monitoring*,.kibana*
+
+
+GET _cat/indices?h=name
+
+?h=ip,port,heapPercent,name

@@ -1,0 +1,74 @@
+Lab 2.1
+
+GET blogs/_search
+{
+  "size": 1,
+  "_source": {
+    "excludes": [
+      "content"
+    ]
+  },
+  "query": {
+    "match_all": {}
+  }
+}
+
+
+GET blogs/_search
+{
+    "query": {
+        "match" : {
+            "title" : "elastic"
+        }
+    }
+}
+
+GET blogs/_search
+{
+    "query": {
+        "match" : {
+            "title" : "elastic stack"
+        }
+    }
+}
+
+
+GET blogs/_search
+{
+    "query": {
+        "match" : {
+            "title" : {
+                "query" : "elastic stack",
+                "operator" : "and"
+            }
+        }
+    }
+}
+
+Which blogs have performance or optimizations or improvements in the content field?"
+GET blogs/_search
+{
+    "query": {
+        "match" : {
+            "content" : {
+                "query" : "performance optimizations improvements",
+                "operator" : "or"
+            }
+        }
+    }
+}
+
+has at least two of the search terms
+GET blogs/_search
+{
+    "query": {
+        "match" : {
+            "content" : {
+                "query" : "performance optimizations improvements",
+                "operator" : "or",
+                "minimum_should_match":2
+            }
+        }
+    }
+}
+

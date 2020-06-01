@@ -1,0 +1,48 @@
+Section: Analyzer
+
+create an index text_analyzed_properties, set title field of type text to use english analyzer, and content field of type text to use the stop analyzer and a multi field called simple that uses the simple analyzer
+
+PUT text_analyzed_properties
+{
+  "mappings": {
+    "properties": {
+      "title": {
+        "type": "text",
+        "analyzer": "english"
+      },
+      "content": {
+        "type": "text",
+        "analyzer": "stop",
+        "fields": {
+          "simple": {
+            "type": "text",
+            "analyzer": "simple"
+          }
+        }
+      }
+    }
+  }
+}
+
+Now index some sample documents
+PUT text_analyzed_properties/_doc/1
+{
+  "content": "how now brown cow"
+}
+PUT text_analyzed_properties/_doc/2
+{
+  "content": "hot crossed buns"
+}
+
+GET text_analyzed_properties/_search
+
+test query on .simple field of content field
+GET text_analyzed_properties/_search
+{
+  "query": {
+    "match": {
+      "content.simple": "how"
+    }
+  }
+}
+works!

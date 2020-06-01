@@ -1,0 +1,164 @@
+Lab 5.2: Index Management
+
+Create a new index named logs-000001 that meets the following criteria:
+it has 4 primary shards and 1 replica shard;
+it uses shard filtering to allocate shards to hot nodes;
+it has an alias named logs with is_write_index set to true.
+
+PUT  logs-000001
+{
+  "settings": {
+    "number_of_replicas": 1,
+    "number_of_shards": 4,
+    "routing": {
+      "allocation": {
+        "require": {
+          "my_temp": "hot"
+        }
+      }
+    }
+  },
+  "aliases": {
+    "logs": {
+      "is_write_index": true
+    }
+  }
+}
+
+Run the following _bulk command, which indexes a few simple log documents into the logs alias:
+
+POST logs/_bulk
+{ "index" : { "_id" : "1"}}
+{ "level" : "INFO", "message" : "recovered [20] indices into cluster_state", "date" : "2018-07-04"}
+{ "index" : { "_id" : "2"}}
+{ "level" : "WARN", "message" : "received shard failed for shard id 0", "date" : "2018-07-04"}
+{ "index" : { "_id" : "3"}}
+{ "level" : "INFO", "message" : "Cluster health status changed from [YELLOW] to [GREEN]", "date" : "2018-07-04"}
+
+Run the following query to view the three documents.
+
+GET logs/_search
+
+Use the following conditions to rollover logs into a new index:
+the maximum age of the index is one day;
+the maximum number of documents the index should contain is two;
+the maximum estimated sized of the primary shard of the index is 1 gigabyte.
+
+Like the old index, the new one should also have 4 primary shards and 1 replica shard and use shard filtering to allocate shards to hot nodes.
+
+
+POST logs/_rollover
+{
+  "conditions": {
+    "max_age": "1d",
+    "max_docs": 2,
+    "max_size": "1gb"
+  },
+  "settings": {
+    "number_of_replicas": 1,
+    "number_of_shards": 4,
+    "routing": {
+      "allocation": {
+        "require": {
+          "my_temp": "hot"
+        }
+      }
+    }
+  }
+}
+
+POST logs/_bulk
+{ "index" : { "_id" : "4"}}
+{ "level" : "INFO", "message" : "[node2] started", "date" : "2018-07-05"}
+{ "index" : { "_id" : "5"}}
+{ "level" : "WARN", "message" : "not enough master nodes discovered during pinging", "date" : "2018-07-05"}
+
+
+GET logs-000002/_search
+
+GET logs/_search
+
+Here is an interesting note about aliases. What do you think happens if you delete the logs alias, which currently points to two indices? Run the following command and see what happens:
+
+
+DELETE logs
+^that's not the way to remove an alias, you have to hit the aliases endpoint, with actions payload and have a remove index name and alias name object
+not the correct command to remove an alias.
+
+
+Prepare logs-000001 for shrinking by making it read-only and allocating all the shards to warm nodes.
+
+PUT /logs-000001/_settings
+{
+  "settings": {
+    "index.routing.allocation.require.my_temp": "warm", 
+    "index.blocks.write": true 
+  }
+}
+
+OR
+
+PUT logs-000001/_settings
+{
+  "routing": {
+    "allocation": {
+      "require": {
+        "my_temp": "warm"
+      }
+    }
+  },
+  "blocks.write": true
+}
+
+Shrink into shrink-logs-000001 with a single primary shard.
+
+POST logs-000001/_shrink/shrink-logs-000001
+{
+  "settings": {
+    "index.number_of_shards": 1,
+    "codec": "best_compression"
+  }
+}
+
+OR
+
+POST /logs-000001/_shrink/shrink-logs-000001
+{
+  "settings": {
+    "index": {
+      "number_of_shards":1,
+    },
+    "codec": "best_compression"
+  }
+}
+
+Suppose you are done writing into shrink-logs-000001, so force merge all of its segments into a single segment.
+
+POST shrink-logs-000001/_forcemerge?max_num_segments=1
+
+In a single request, remove the alias logs from logs-000001 and instead assign logs to shrink-logs-000001.
+
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "shrink-logs-000001",
+        "alias": "logs"
+      }
+    },
+    {
+      "remove": {
+        "index": "logs-000001",
+        "alias": "logs"
+      }
+    }
+  ]
+}
+
+
+DELETE logs-000001
+
+Notice that searching logs still retrieves all 5 log events:
+
+GET logs/_search

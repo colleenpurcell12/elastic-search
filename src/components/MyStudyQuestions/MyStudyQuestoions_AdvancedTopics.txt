@@ -1,0 +1,608 @@
+Section: Nested Fields, mappings, reindex, aggregations on nested fields, field alias,
+ _update_by_query, ingest pipeline, dynamic mapping, index template, index alias
+
+Run this query for a product with these attributes, what do you notice?
+GET store_transactions/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "products.sku.keyword": "ZO0489604896"
+          }
+        },
+        {
+          "match": {
+            "products._id.keyword": "sold_product_584021_20149"
+          }
+        }
+      ]
+    }
+  }
+}
+Answer the query matches two separate products, which isn't what we want.
+
+This reveals a problem with the products field. The field is an array of objects. It's not mapped as a nested field. The relationship between the product and it's attributes is not tracked, only the product names per document are tracked (normalized).
+
+Let's address that. First get the mapping of the index
+GET store_transactions/_mapping
+
+Then create a new index that maps products as type nested
+PUT fixed_transactions
+{
+  "mappings": {
+    "properties": {
+      "category": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "customer_first_name": {
+        "type": "keyword"
+      },
+      "customer_full_name": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "customer_gender": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "customer_id": {
+        "type": "short"
+      },
+      "customer_last_name": {
+        "type": "keyword"
+      },
+      "customer_phone": {
+        "type": "keyword"
+      },
+      "day_of_week": {
+        "type": "keyword"
+      },
+      "day_of_week_i": {
+        "type": "short"
+      },
+      "email": {
+        "type": "keyword"
+      },
+      "geoip": {
+        "properties": {
+          "city_name": {
+            "type": "keyword"
+          },
+          "continent_name": {
+            "type": "keyword"
+          },
+          "country_iso_code": {
+            "type": "keyword"
+          },
+          "location": {
+            "properties": {
+              "lat": {
+                "type": "float"
+              },
+              "lon": {
+                "type": "float"
+              }
+            }
+          },
+          "region_name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          }
+        }
+      },
+      "manufacturer": {
+        "type": "keyword"
+      },
+      "order_date": {
+        "type": "date"
+      },
+      "order_id": {
+        "type": "long"
+      },
+      "products": {
+        "type": "nested",
+        "properties": {
+          "_id": {
+            "type": "keyword"
+          },
+          "base_price": {
+            "type": "float"
+          },
+          "base_unit_price": {
+            "type": "float"
+          },
+          "category": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "created_on": {
+            "type": "date"
+          },
+          "discount_amount": {
+            "type": "long"
+          },
+          "discount_percentage": {
+            "type": "short"
+          },
+          "manufacturer": {
+            "type": "keyword"
+          },
+          "min_price": {
+            "type": "float"
+          },
+          "price": {
+            "type": "float"
+          },
+          "product_id": {
+            "type": "long"
+          },
+          "product_name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "quantity": {
+            "type": "long"
+          },
+          "sku": {
+            "type": "keyword"
+          },
+          "tax_amount": {
+            "type": "long"
+          },
+          "taxful_price": {
+            "type": "float"
+          },
+          "taxless_price": {
+            "type": "float"
+          },
+          "unit_discount_amount": {
+            "type": "long"
+          }
+        }
+      },
+      "sku": {
+        "type": "keyword"
+      },
+      "taxful_total_price": {
+        "type": "float"
+      },
+      "taxless_total_price": {
+        "type": "float"
+      },
+      "total_quantity": {
+        "type": "long"
+      },
+      "total_unique_products": {
+        "type": "long"
+      },
+      "type": {
+        "type": "keyword"
+      },
+      "user": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      }
+    }
+  }
+}
+
+Check that it looks good
+GET fixed_transactions/_mapping
+
+Now reindex the data into the new index with the improved maping
+POST _reindex
+{
+  "dest": {
+    "index": "fixed_transactions"
+  },
+  "source": {
+    "index": "store_transactions"
+  }
+}
+
+Now we are ready to query and agg on the nested product field correctly.
+Now rerun the query from before that searches for a product based on sku and _id. What is the result?
+
+GET fixed_transactions/_search
+{
+  "query": {
+    "nested": {
+      "path": "products",
+      "query": {
+        "bool": {
+          "must": [
+             {
+              "match": {
+                "products.sku.keyword": "ZO0489604896"
+              }
+            },
+             {
+              "match": {
+                "products._id.keyword": "sold_product_584021_20149"
+              }
+            }
+           
+          ]
+        }
+      }
+    }
+  }
+}
+
+Answer: no results since those attributes are from different products in the same transaction.
+
+Great, now lets aggregated on the nested field.
+
+Get a sample product for each manufacturer
+
+GET fixed_transactions/_search?size=0
+{
+  "aggs": {
+    "nested_products": {
+      "nested": {
+        "path": "products"
+      },
+      "aggs": {
+        "manufacturers": {
+          "terms": {
+            "field": "products.manufacturer"
+          },
+          "aggs": {
+            "top_products": {
+              "top_hits": {
+                "size": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+Answer: a top_hits inner agg provides sample results for each bucket. When you first nest on product, the sample results is just the product instead of the entire transaction document.
+
+Now that we've verified our nested field is set up properly. Lets find the average item price per manufacturer (other products in the same order shouldnt disrupt the calc) ordered by most expensive first.
+
+GET fixed_transactions/_search?size=0
+{
+  "aggs": {
+    "nested_product": {
+      "nested": {
+        "path": "products"
+      },
+      "aggs": {
+        "manufacturer": {
+          "terms": {
+            "field": "products.manufacturer",
+            "order": {
+              "avg_item_price": "desc"
+            }
+          },
+          "aggs": {
+            "avg_item_price": {
+              "avg": {
+                "field": "products.base_price"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+Lets continue to improve the mapping, by adding field aliases. Customer fields can be improved and turned into an object.
+
+POST fixed_transactions/_mapping
+{
+  "properties": {
+    "customer": {
+      "properties": {
+        "gender": {
+          "type": "alias",
+          "path": "customer_gender"
+        },
+        "phone": {
+          "type": "alias",
+          "path": "customer_phone"
+        },
+        "id": {
+          "type": "alias",
+          "path": "customer_id"
+        },
+        "name": {
+          "properties": {
+            "first": {
+              "type": "alias",
+              "path": "customer_first_name"
+            },
+            "last": {
+              "type": "alias",
+              "path": "customer_last_name"
+            },
+            "full": {
+              "type": "alias",
+              "path": "customer_full_name.keyword"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+Answer: add to the mapping a object property for customer
+
+Using the new customer object field, generate 10 customer full name buckets.
+
+GET fixed_transactions/_search?size=0
+{
+  "aggs": {
+    "NAME": {
+      "terms": {
+        "field": "customer.name.full",
+        "size": 10
+      }
+    }
+  }
+}
+Answer: use customer.name.full to group by customer full name
+
+Before we work with processors, tag all the documents with a field updateBatch and set equal to 1.
+
+POST fixed_transactions/_update_by_query
+{
+  "script":{
+    "source": "ctx._source['updateBatch'] = 1"
+  }
+}
+
+Create an ingest pipeline (to be used with an update by query) where the email.zzz is replaced with .com
+
+
+PUT _ingest/pipeline/set_batch
+{
+  "description": "increments batch number",
+  "processors": [
+    {
+      "script": {
+        "lang": "painless",
+        "source": "ctx['updateBatch'] = ctx['updateBatch']+1"
+      }
+    }
+  ]
+}
+
+Create a pipeline that replaces .zzz with .come in the email field and increments the updateBatch
+
+PUT _ingest/pipeline/replace_zzz_com
+{
+  "description": "replaces email .zzz with .com",
+  "processors": [
+    {
+      "gsub": {
+        "field": "email",
+        "pattern": ".zzz",
+        "replacement": ".com"
+      }
+    },
+    {
+      "pipeline": {
+        "name": "set_batch"
+      }
+    }
+  ]
+}
+
+Verify that you've registered the pipelines
+GET /_ingest/pipeline
+
+Before we use the pipeline look at all the emails ending with .zzz
+GET fixed_transactions/_search
+{
+  "query": {
+    "wildcard": {
+      "email": {
+        "value": "*.zzz"
+      }
+    }
+  },
+  "_source": "email"
+}
+
+Make sure none are empty or otherwise dont match  *.zzz
+
+GET fixed_transactions/_search
+{
+  "query": {
+    "match": {
+      "email":  ""
+    }
+  },
+  "_source": "email"
+}
+
+GET fixed_transactions/_search?size=0
+{
+  "aggs": {
+    "NAME": {
+      "terms": {
+        "field": "email"
+      }
+    }
+  }
+}
+
+Ok now lets run the ingest pipeline on all the documents with a update by query
+
+POST fixed_transactions/_update_by_query?pipeline=replace_zzz_com
+
+Re run the aggregation to look at all the emails
+GET fixed_transactions/_search?size=0
+{
+  "aggs": {
+    "NAME": {
+      "terms": {
+        "field": "email"
+      }
+    }
+  }
+}
+
+Wow all of them now end in .com, so cool!
+
+Create an index with dynamic template for strings to get mapped to type keyword
+PUT ex_dynamic_mapped_index
+{
+  "mappings": {
+    "dynamic_templates": [
+      {
+        "strings": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type":  "keyword"
+          }
+        }
+      }
+    ]
+  }
+}
+
+Index a sample doc with a string field
+PUT ex_dynamic_mapped_index/_doc/1
+{
+  "content": "I should be matched to keyword field"
+}
+
+Verify that the field has been mapped as a keyword data type
+GET ex_dynamic_mapped_index
+
+Clean up example
+DELETE ex_dynamic_mapped_index
+
+Now use that dynamic template in the context of an index template
+PUT _template/string_to_keyword_template
+{
+  "index_patterns": ["ex_dynamic*"],
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1
+  },
+  "mappings": {
+   "dynamic_templates": [
+     {
+        "strings": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type":  "keyword"
+          }
+        }
+      }
+    ]
+  }
+}
+
+Create a index that matches the index pattern
+PUT ex_dynamic_mapped_index2
+
+Get the mapping to confirm that the index template worked
+GET ex_dynamic_mapped_index2/_mapping
+
+Map a doc with a string field to test index template's dynamic mapping
+PUT ex_dynamic_mapped_index2/_doc/1
+{
+  "title": "I should be matched to keyword field"
+}
+
+Verify it worked
+GET ex_dynamic_mapped_index2/_mapping
+
+Now lets work on index aliases
+Create an alias for the subset of transactions that are category "Men's Shoes"
+
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "fixed_transactions",
+        "alias": "thursday_index",
+        "filter": {
+          "term": {
+            "day_of_week": "Thursday"
+          }
+        }
+      }
+    }
+  ]
+}
+
+verify that the alias points to a subset of hits from the "parent" index
+GET thursday_index/_search
+
+Answer: "hits" : { "total" : { "value" : 775,
+      
+Doing a get on an alias, will point you to the alias, mappings and settings of its parent
+GET thursday_index
+
+Note: the _cat/indices/:aliasName endpoint will match the parent of an alias when searching for an alias name
+GET _cat/indices/thursday_index?v
+
+But the alias is not in the indices list
+GET _cat/indices
+
+How can you delete an alias?
+Anser: DELETE alias_name doesnt work, you have to do actions --> "remove" to remove the relationship between the alias name and the index it's pointing to
+
+POST _aliases
+{
+  "actions": [
+    {
+      "remove": {
+        "index": "fixed_transactions",
+        "alias": "thursday_index"
+      }
+    }
+  ]
+}

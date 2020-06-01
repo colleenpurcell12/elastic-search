@@ -1,0 +1,45 @@
+Lab 4.3: Topology Awareness
+
+GET _cat/nodes?v&s=name
+GET _cat/nodeattrs?v&s=name
+
+Use command below to see if there Are  copies of the same shard (both primary and replica shard) 
+allocated to the same rack
+SOMETIMES YES cause we havent forced it to not replicate on a rack
+
+GET _cat/shards?h=index,shard,prirep,node&s=index,prirep
+
+Implement shard allocation awareness with the following
+PUT _cluster/settings
+{
+  "transient": {
+    "cluster": {
+      "routing": {
+        "allocation.awareness.attributes": "my_rack"
+      }
+    }
+  }
+}
+
+GET _cat/shards?h=index,shard,prirep,node&s=index,prirep
+
+now explicitly set the cluster to not duplicate more than one copy over to a single rack (of multiple nodes)
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster": {
+      "routing": {
+        "allocation.awareness.attributes": "my_rack",
+        "allocation.awareness.force.my_rack.values": "rack1,rack2"
+      }
+    }
+  }
+}
+GET _cat/shards?h=index,shard,prirep,node&s=index,prirep
+
+
+--> basically there was no point in making copies of the primary shards 
+(replicas) on the same rack, so when node2/node4 were down, 
+no replicas got recreated on node1/node3
+

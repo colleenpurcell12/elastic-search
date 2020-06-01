@@ -1,0 +1,93 @@
+Lab 5.1: Controlling Shard Allocation
+
+Set the node's yml files to the following:
+
+node1    server1    data, ingest and master-eligible       rack1    hot    
+node2    server2     data, ingest and master-eligible      rack2    hot    
+node3    server3    dedicated data                          rack1    warm   
+node4    server4    dedicated data                         rack2    warm    
+node5    server5    dedicated master-eligible voting-only    none    none    
+
+node1
+node.attr.my_rack: rack1
+node.attr.my_temp: hot
+node.master: true 
+node.data: true 
+node.ingest: true
+node.ml: false
+
+node2
+node.attr.my_rack: rack2
+node.attr.my_temp: hot
+node.master: true 
+node.data: true 
+node.ingest: true
+node.ml: false
+
+node3
+node.attr.my_rack: rack1
+node.attr.my_temp: warm
+node.master: false 
+node.data: true 
+node.ingest: false
+node.ml: false
+
+node4
+node.attr.my_rack: rack2
+node.attr.my_temp: warm
+node.master: false 
+node.data: true 
+node.ingest: false
+node.ml: false
+
+node5: voting only node
+node.voting_only:true
+node.master: true 
+node.data: false 
+node.ingest: true
+node.ml: false
+
+
+
+Check node role: dim is data ingest and master role for example
+GET _cat/nodes?v&s=name
+
+Check the attributes of each node
+GET _cat/nodeattrs?v&s=name
+
+
+PUT logs_server4
+
+tell the logs_server1 index that it should allocate itself to WARM nodes
+PUT logs_server1/_settings
+{
+  "index.routing.allocation.require.my_temp": "warm"
+}
+
+PUT logs_server2/_settings
+{
+  "index.routing.allocation.require.my_temp": "warm"
+}
+
+PUT logs_server3/_settings
+{
+  "index.routing.allocation.require.my_temp": "warm"
+}
+
+
+tell the logs_server4 index that it should allocate itself to HOT nodes
+
+PUT logs_server4/_settings
+{
+  "index.routing.allocation.require.my_temp": "hot"
+}
+
+Now when you check which indices are on which nodes, the indices that are allocated 
+to hot nodes (log_server4) should be on nodes with my_temp set to hot (node1 or node 2)
+
+GET _cat/shards/logs_server*?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+
+EXAM
+-->since node1 and node2 are my_temp hot, and index log_server4 has its index setting routing allocation require my_temp to be hot,
+it's shards will be the only ones on node 1 and 2.

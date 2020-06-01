@@ -1,0 +1,332 @@
+Lab 1.4: Analyzers
+
+Lab 1.4: Analyzers
+
+GET _analyze
+{
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+default analyzer is standard, which does lower case, removes punctuation and special characters (keep stop words)
+
+
+
+GET _analyze
+{
+  "analyzer": "whitespace", 
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+The whitespace analyzer does not lowercase terms and does not remove punctuation.
+
+
+GET _analyze
+{
+  "analyzer": "stop", 
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+parses by space and removes and
+
+GET _analyze
+{
+  "analyzer": "keyword", 
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+no changes haha
+
+
+GET _analyze
+{
+  "analyzer": "english", 
+  "text": "Introducing beta releases: Elasticsearch and Kibana Docker images!"
+}
+
+stemming! plus whitespace, punctuation and lowercase
+
+which is best for blogs? not keyword, cause it's never match. probably english cause it doesnt change proper nouns. Not whitespace cause it doesnt remove puncctation
+
+GET _analyze
+{
+  "analyzer": "english", 
+  "text": "This release includes mainly bug fixes."
+}
+
+GET _analyze
+{
+  "tokenizer": "standard",
+  "filter": [
+    "lowercase",
+    "snowball"
+  ],
+  "text": "This release includes mainly bug fixes."
+}
+english removes stop words, and it stems the word mainly into mainli instead of main like the snowball filter
+
+english_stemmer versus the snowball_stemmer (main)
+
+Using _analyze, configure and test an analyzer that satisfies the following: uses the standard tokenizer, uses the lowercase token filter, uses the asciifolding token filter
+
+PUT my_index
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_custom_analyzer": {
+          "type": "custom", 
+          "tokenizer": "standard",
+        
+          "filter": [
+            "lowercase",
+            "asciifolding"
+          ]
+        }
+      }
+    }
+  }
+}
+
+POST my_index/_analyze
+{
+  "analyzer": "my_custom_analyzer",
+"text": "Elasticsearch é um motor de buscas distribuído."
+}
+
+SIMPLER JUST TO DO THIS
+
+GET _analyze
+{
+  "tokenizer": "standard",
+  "filter": [
+    "lowercase",
+    "asciifolding"
+  ],
+"text": "Elasticsearch é um motor de buscas distribuído."
+}
+  
+  GET _analyze
+{
+  "tokenizer": "standard",
+  "filter": [
+    "lowercase",
+    "asciifolding"
+  ],
+"text": "C++ can help it and your IT systems."
+}
+  
+GET analysis_test1/_analyze
+{
+  "analyzer": "my_analyzer",
+  "text": "C++ can help it and your IT systems."
+}
+PUT analysis_test1
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_analyzer": { 
+          "type": "custom",
+          "char_filter": [
+            "prog_lang"
+          ],
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "custom_stop"
+          ]
+        }
+      },
+      "char_filter": {
+        "prog_lang": { 
+          "type": "mapping",
+          "mappings": [
+            "IT  => _IT_",
+            "c++  => cpp",
+            "C++  => cpp"
+          ]
+        }
+      },
+      "filter": {
+        "custom_stop": { 
+          "type": "stop",
+          "stopwords": ["can", "we", "our", "you", "your", "all"]
+        }
+      }
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "content": "c++"
+    }
+  }
+}
+
+GET blogs/_search
+{
+  "query": {
+    "match": {
+      "title": "IT"
+    }
+  }
+}
+
+
+Create a new index named blogs_analyzed that uses your custom my_analyzer from the previous step
+
+Use the mappings from blogs and add a multi-field to both the content and title fields named my_analyzer. These multi-fields should be of type text and set the analyzer to my_analyzer.
+
+GET blogs/_mapping
+
+Make sure you copy the entire analyzer over
+      
+PUT blogs_analyzed1
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_analyzer": { 
+          "type": "custom",
+          "char_filter": [
+            "prog_lang"
+          ],
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "custom_stop"
+          ]
+        }
+      },
+      "char_filter": {
+        "prog_lang": { 
+          "type": "mapping",
+          "mappings": [
+            "IT  => _IT_",
+            "c++  => cpp",
+            "C++  => cpp"
+          ]
+        }
+      },
+      "filter": {
+        "custom_stop": { 
+          "type": "stop",
+          "stopwords": ["can", "we", "our", "you", "your", "all"]
+        }
+      }
+    }
+  },
+  
+  "mappings" : {
+      "properties" : {
+        "author" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "category" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "content" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            },
+            "my_analyzer" : {
+              "type": "text",
+              "analyzer": "my_analyzer"
+            }
+          }
+        },
+        "locales" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "publish_date" : {
+          "type" : "date"
+        },
+        "seo_title" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "title" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            },
+            "my_analyzer" : {
+              "type": "text",
+              "analyzer": "my_analyzer"
+            }
+          }
+        },
+        "url" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        }
+      }
+    }
+}
+
+
+Reindex
+Run the following command to index the current blogs into your new blogs_analyzed index:
+
+POST _reindex?wait_for_completion=false
+{
+  "source": {"index": "blogs"},
+  "dest":   {"index": "blogs_analyzed1"}
+}
+
+
+Rerun the searches in the new index using the .my_analyzer field and compare results.
+ 
+GET blogs_analyzed1/_search
+{
+  "query": {
+    "match": {
+      "content.my_analyzer": "c++"
+    }
+  }
+}
+
+GET blogs_analyzed1/_search
+{
+  "query": {
+    "match": {
+      "title.my_analyzer": "IT"
+    }
+  }
+}

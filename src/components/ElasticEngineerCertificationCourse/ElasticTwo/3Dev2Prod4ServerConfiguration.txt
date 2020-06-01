@@ -1,0 +1,23 @@
+// LAST ONe on May 7th
+// NOT ON TEST
+slide 206
+https://www.elastic.co/guide/en/elasticsearch/reference/7.6/system-config.html
+
+spinning disks for hot nodes
+when one machine goes down, if beefy machine goes down, then medium machine has to take over the load
+should have all medium so they share the load
+disks on the server
+storage best practices: noop, trim disk, spinning disks ok for warm nodes,
+ hot nodes are big system but it works best with a bunch of medium notes
+
+throttles 
+in the weeds, expert level
+
+
+JVM Configuration max heap size is 50% of physical memory, 30 g, rest for operating system
+default heap size is 1g, needs to match
+Production mode
+disable swapping, bootstrap checks
+good documentation
+
+https://www.elastic.co/guide/en/elasticsearch/reference/7.6/bootstrap-checks.html

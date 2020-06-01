@@ -1,0 +1,65 @@
+Section: Ingest Pipeline
+
+First let's create a index to edit. Create a new index called cheap_transactions as a subset of store_transactions, of all the transactions worth less than $20 euro.
+
+POST _reindex
+{
+  "source": {
+    "index": "store_transactions",
+    "query": {
+      "range": {
+        "taxful_total_price": {
+          "lte": 20
+        }
+      }
+    }
+  },
+  "dest": {
+    "index": "cheap_transactions"
+  }
+}
+
+GET cheap_transactions/_search
+GET cheap_transactions/_mapping
+
+Now let's create an ingest pipeline to update it. It should
+- be named edit_cheap_transactions
+- remove the taxless_total_price field
+- for every sku change the prefix from ZO to EX
+- change the type of day_of_week_i field to integer
+
+PUT _ingest/pipeline/edit_cheap_transactions
+{
+  "description": "removestaxless_total_price, adds % to each product's discount perc, changes type day_of_week to int",
+  "processors": [
+    {
+      "convert": {
+        "field": "day_of_week_i",
+        "type": "integer"
+      }
+    },
+    {
+      "remove": {
+        "field": "taxless_total_price"
+      }
+    },
+    {
+      "foreach": {
+        "field": "sku",
+        "processor": {
+          "gsub": {
+            "field" : "_ingest._value",
+            "pattern": "ZO",
+            "replacement": "EX"
+          }
+        }
+      }
+    }
+  ]
+}
+
+Use the pipeline in an update by query
+POST cheap_transactions/_update_by_query?pipeline=edit_cheap_transactions
+
+Verify that the changes were made
+GET cheap_transactions/_search?size=10

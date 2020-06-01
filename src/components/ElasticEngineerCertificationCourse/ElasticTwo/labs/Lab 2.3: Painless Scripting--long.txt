@@ -1,0 +1,326 @@
+Lab 2.3: Painless Scripting
+
+GET blogs_fixed1/_search
+{
+  "query": {
+    "bool": {
+      "filter": {
+        "match": {
+          "seo_title.keyword": ""
+        }
+      }
+    }
+  }
+}
+
+Add a script processor that checks if the seo_title is equal to an empty string "". If it is, set seo_title to the value of the document’s title field.
+
+Set the value of reindexBatch to 5 for every document
+
+
+PUT _ingest/pipeline/fix_seo_title
+{
+  "processors" : [
+    {
+      "script": {
+          "source": """
+            if(ctx['seo_title']==="") {
+              ctx['seo_title'] = ctx['title'];
+            }
+            ctx['reindexBatch'] = 5;
+            """
+        }
+    }
+  ]
+}
+
+
+POST /_ingest/pipeline/fix_seo_title/_simulate
+{
+  "docs": [
+    {
+      "_index": "index",
+      "_id": "id",
+      "_source": {
+        "title": "Where in the World is Elastic? - Elastic{ON}Tour London & Paris",
+        "seo_title": ""
+      }
+    },
+    {
+      "_index": "index",
+      "_id": "id",
+      "_source": {
+        "title": "This week in Elasticsearch and Apache Lucene",
+        "seo_title": "What's new in Elasticsearch and Apache Lucene"
+      }
+    }
+  ]
+}
+
+
+Run an _update_by_query on blogs_fixed, sending each document through your fix_seo_title pipeline. But only update documents that have a reindexBatch value equal to 4
+
+POST blogs_fixed1/_update_by_query?pipeline=fix_seo_title
+{
+  "query": {
+    "match": {
+      "reindexBatch": 4
+    }
+  }
+}
+
+
+this return nill results
+GET blogs_fixed1/_search
+{
+  "query": {
+    "bool": {
+      "filter": {
+        "match": {
+          "seo_title.keyword": ""
+        }
+      }
+    }
+  }
+}
+
+Next, imagine that every document in blogs_fixed should have the number of views of that blog. Run an update_by_query with a script that sets the number_of_views field to 0 on every document.
+
+
+PUT _ingest/pipeline/set_number_of_views
+{
+  "processors": [
+    {
+      "set": {
+        "field": "number_of_views1",
+        "value": 0
+      }
+    }
+  ]
+}
+
+POST _ingest/pipeline/set_number_of_views/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "name": "test"
+      }
+    }
+  ]
+}
+
+POST blogs_fixed1/_update_by_query?pipeline=set_number_of_views
+
+
+OR SIMPLER
+???? EXAM why ctx._source['number_of_views'] instead of ctx['number_of_views']
+POST blogs_fixed1/_update_by_query
+{
+  "script": {
+    "source": "ctx._source['number_of_views'] = 0",
+    "lang": "painless"
+  }
+}
+
+GET blogs_fixed1/_search
+{
+  "query": {
+    "bool": {
+      "filter": {
+        "match": {
+          "url.keyword": "/blog/elasticsearch-storage-the-true-story"
+        }
+      }
+    }
+  }
+}
+
+"_id" : "BSq-w28BAS0Qwl5ZkImw",
+
+
+
+GET logs_server*/_search
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": "2017-05-12",
+              "lt": "2017-05-13"
+            }
+          }
+        },
+        {
+          "match": {
+            "originalUrl.keyword": "/blog/elasticsearch-storage-the-true-story"
+          }
+        }
+      ]
+    }
+  }
+}
+
+GET blogs_fixed1/_search
+{
+  "query": {
+    "match": {
+      "_id": "BSq-w28BAS0Qwl5ZkImw"
+    }
+  }
+}
+
+
+ "_id" : "1i2-w28BAS0Qwl5Z07CI",
+
+POST blogs_fixed1/_update_by_query
+{
+  "query": {
+    "match": {
+      "_id": "BSq-w28BAS0Qwl5ZkImw"
+    }
+  },
+    "script": {
+        "source": "ctx._source.number_of_views1 + 12"
+    }
+}
+
+Using an _update and an inline script, add 41 to the number_of_views field of the blog above.
+
+EXAM increment
+POST blogs_fixed1/_update/BSq-w28BAS0Qwl5ZkImw
+{
+    "script" : {
+        "source": "ctx._source['number_of_views'] += 41"
+    }
+}
+
+
+GET blogs_fixed1/_search
+{
+  "query": {
+    "match": {
+      "_id": "BSq-w28BAS0Qwl5ZkImw"
+    }
+  }
+}
+
+OR simpler
+GET blogs_fixed/_doc/BSq-w28BAS0Qwl5ZkImw
+
+Store a script
+The script is stored in the cluster state with the id add_to_number_of_views
+
+The script increments number_of_views by the amount of the value in a parameter named new_views
+
+POST _scripts/add_to_number_of_views
+{
+  "script": {
+    "lang": "painless",
+    "source": "ctx._source['number_of_views'] += params['new_views']"
+  }
+}
+
+
+GET logs_server*/_search
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": "2017-05-13",
+              "lt": "2017-05-14"
+            }
+          }
+        },
+        {
+          "match": {
+            "originalUrl.keyword": "/blog/elasticsearch-storage-the-true-story"
+          }
+        }
+      ]
+    }
+  }
+}
+
+""
+
+GET blogs_fixed1/_search
+{
+  "_source": "title", 
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "content": "elasticsearch storage the true story"
+          }
+        },
+        {
+          "match_phrase": {
+            "title": "ElasticSearch storage"
+          }
+        }
+      ]
+    }
+  }
+}
+
+GET blogs_fixed1/_doc/BSq-w28BAS0Qwl5ZkImw
+
+POST blogs_fixed1/_update/BSq-w28BAS0Qwl5ZkImw
+{
+  "script": {
+    "id": "add_to_number_of_views",
+    "params": {
+      "new_views": 11
+    }
+  }
+}
+
+sets the field number_of_views to a random integer between 0 and 10,000. You will use this script in an ingest pipeline so make sure to use the syntax accordingly.
+
+POST _scripts/add_random_number_of_views
+{
+  "script": {
+    "lang": "painless",
+    "source": """
+      var num = new Random()
+      ctx._source['number_of_views'] = num
+    """
+  }
+}
+
+ Create an ingest pipeline number_of_views which uses the script that you previously created.
+
+PUT _ingest/pipeline/number_of_views
+{
+    "description": "use index:my_index and type:_doc",
+    "processors": [
+      {
+        "script": {
+          "id": "add_random_number_of_views"
+        }
+      }
+    ]
+}
+
+update blogs except the one that you already updated (the url is /blog/elasticsearch-storage-the-true-story)
+
+EXAM examine when script is stored on cluster state and when a script is defined in the context of a pipeline (script processor versus stored script)
+POST blogs_fixed1/_update_by_query?pipeline=number_of_views
+{
+  "query": {
+    "bool": {
+      "must_not": {
+        "match": {
+          "originalUrl.keyword": "/blog/elasticsearch-storage-the-true-story"
+        }
+      }
+    }
+  }
+}

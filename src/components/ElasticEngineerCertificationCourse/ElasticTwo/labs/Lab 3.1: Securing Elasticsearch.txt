@@ -1,0 +1,37 @@
+
+Lab 3.1: Securing Elasticsearch
+secure a one node Elasticsearch cluster
+
+nano elasticsearch/config/elasticsearch.yml
+
+cluster.name: my_secure_cluster
+node.name: ${NODENAME}
+network.host: _site_
+
+xpack.security.enabled: true
+discovery.type: single-node
+
+./elasticsearch/bin/elasticsearch
+
+set up passwords:
+./elasticsearch/bin/elasticsearch-setup-passwords interactive
+
+run kibana with credentials:
+./kibana/bin/kibana --elasticsearch.hosts="http://server7:9200" --elasticsearch.username=kibana --elasticsearch.password=password
+
+how to set up a new role in kibana
+how to set up a new user with that role in kibanana
+
+
+in dev tools: only GET _search will work cause that's just gonna let them read indices, not edit or look at cluster state
+GET /
+
+GET _search
+
+PUT new_index/_doc/1
+{
+  "security_test": "this will fail"
+}
+
+
+

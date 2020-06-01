@@ -1,0 +1,75 @@
+Section: INDEX TEMPLATES
+
+Create an index template called ecommerce_template, that gives indices a property called transaction_id that has a type for fields that wont be analyzed (keyword), set replicas to 0 and primaries 2, and have the template give indices an alias of transactions_data
+
+Answer
+PUT _template/ecommerce_template
+{
+  "index_patterns": ["ecom_test*"],
+  "mappings": {
+    "properties": {
+      "transaction_id": {
+        "type": "keyword"
+      }
+    }
+  },
+  "settings": {
+    "number_of_replicas": 0,
+    "number_of_shards": 2
+  },
+  "aliases": {
+    "transactions_data": {}
+  }
+}
+
+Verify the template was created successfully
+
+Answer
+GET _template/ecommerce_template
+Shows you the settings, mappings and aliases 
+GET _cat/templates?v
+-->name ecommerce_template and index_patterns [ecom_test*] 
+
+Sidenote: you can look at the templates list in a formatted way by adding ?v for column headers and h= to specify which headers you'd like to include
+
+What does the following command give you?
+GET _cat/templates?v&h=index_patterns&s=order:asc,index_patterns
+
+Answer: a list of the templates with only the index_patterns column with the column header at the top, ordered by the index pattern
+
+Now create two indices with a matching index template naming pattern prefix
+
+Answer
+PUT ecom_test1
+PUT ecom_test2
+
+Verify the new indices were created with the aforementioned index template
+
+Answer
+GET ecom_test1
+GET ecom_test2
+
+Let's add documents to the new indices
+PUT ecom_test1/_doc/1
+{
+  "test": "three blind mice"
+}
+
+PUT ecom_test2/_doc/2
+{
+  "test": "three red mice"
+}
+
+And verify that they are both searchable from the same alias referenced in the index template
+
+Answer
+GET transactions_data/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+Now clean up your example indices
+DELETE ecom_test1
+DELETE ecom_test2

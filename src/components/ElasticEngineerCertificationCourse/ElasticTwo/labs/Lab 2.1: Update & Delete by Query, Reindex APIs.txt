@@ -1,0 +1,211 @@
+Lab 2.1: Update and Delete by Query and Reindex APIs
+
+
+PUT blogs_fixed1
+{
+  "mappings": {
+    "properties": {
+      "author": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "category": {
+        "type": "keyword"
+      },
+      "content": {
+        "type": "text"
+      },
+      "locales": {
+        "type": "keyword"
+      },
+      "publish_date": {
+        "type": "date"
+      },
+      "seo_title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "title": {
+        "type": "text"
+      },
+      "url": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "number_of_views": {
+        "type": "integer"
+      },
+      "reindexBatch": {
+        "type": "byte"
+      }
+    }
+  }
+}
+
+ When needed, use the code below to update the reindexBatch value.
+"script": {
+    "source": "ctx._source['reindexBatch'] = 1;"
+  }
+  
+  Reindex blogs into blogs_fixed. Make sure to use the script above to set the reindexBatch to 1. You should see 1,594 blogs created in blogs_fixed. 
+POST _reindex?wait_for_completion=false
+{
+  "source": {
+    "index": "blogs"
+  },
+  "dest": {
+    "index": "blogs_fixed1"
+  },
+  "script": {
+    "source": "ctx._source['reindexBatch'] = 1;"
+  }
+}
+  
+  View some of the documents in blogs_fixed and verify that the reindexBatch field was added properly.
+
+
+GET blogs_fixed1/_search
+
+let’s add this analyzer in your new blogs_fixed mapping. The analysis settings are non dynamic and can’t be updated while the index is open. To update the analysis settings you need to close the index. Use the following command to close the blogs_fixed index.
+
+** Note that a closed index is blocked for read/write operations and does not allow all operations that opened indices allow. It is not possible to index documents or to search for documents in a closed index.
+
+POST blogs_fixed1/_close
+
+Add the custom analyzer that you defined in the previous lesson.
+
+
+PUT blogs_fixed1/_settings
+{
+  "analysis": {
+    "char_filter": {
+      "cpp_it": {
+        "type": "mapping",
+        "mappings": [
+          "c++ => cpp",
+          "C++ => cpp",
+          "IT => _IT_"
+        ]
+      }
+    },
+    "filter": {
+      "my_stop": {
+        "type": "stop",
+        "stopwords": [
+          "can",
+          "we",
+          "our",
+          "you",
+          "your",
+          "all"
+        ]
+      }
+    },
+    "analyzer": {
+      "my_analyzer": {
+        "tokenizer": "standard",
+        "char_filter": [
+          "cpp_it"
+        ],
+        "filter": [
+          "lowercase",
+          "stop",
+          "my_stop"
+        ]
+      }
+    }
+  }
+}
+
+POST blogs_fixed1/_open
+
+Update the blogs_fixed mapping to add a multi-field my_analyzer for the field content and title.
+
+
+PUT blogs_fixed1/_mapping
+{
+  "properties": {
+    "content": {
+      "type": "text",
+      "fields": {
+        "my_analyzer": {
+          "type": "text",
+          "analyzer": "my_analyzer"
+        }
+      }
+    },
+    "title": {
+      "type": "text",
+      "fields": {
+        "my_analyzer": {
+          "type": "text",
+          "analyzer": "my_analyzer"
+        }
+      }
+    }
+  }
+}
+
+try to run a query on this new field.
+
+GET blogs_fixed1/_search
+{
+  "query": {
+    "match": {
+      "content.my_analyzer": "c++"
+    }
+  }
+}
+You didn’t get any results why?
+
+The existing data was indexed before this analyzer had been defined so the new field has not yet been populated.
+
+
+POST blogs_fixed1/_update_by_query
+{
+  "script": {
+    "source": "ctx._source['reindexBatch']=2",
+    "lang": "painless"
+  },
+  "query": {
+    "match": {
+      "reindexBatch": 1
+    }
+  }
+}
+
+
+GET blogs_fixed1/_search
+{
+  "query": {
+    "match": {
+      "content.my_analyzer": "c++"
+    }
+  }
+}
+
+you get 2 results now (cause the update_by_query made the documents get updated by the new mapping (multi field for content.my_analyzer)
+
+Delete all the documents where the category is Releases. You should delete 238 documents.
+
+
+POST blogs_fixed1/_delete_by_query
+{
+  "query": {
+    "match": {
+      "category": "Releases"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+Lab 5.1
+
+Cluster State API
+access cluster state to check: cluster name, number of nodes, 
+the id of the elected master node, number of indices in the cluster
+
+GET _cluster/state
+
+GET _cat/nodes?v
+
+
+GET /_cluster/state?filter_path=metadata.cluster_coordination.last_committed_config

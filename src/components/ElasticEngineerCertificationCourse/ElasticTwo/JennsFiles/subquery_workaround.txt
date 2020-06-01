@@ -1,0 +1,133 @@
+## First you need a watcher to execute every xx {interval}.  This will run the 'subquery' and put the value into a 1 document index called maxiip. This value will be used for the second query later on. 
+
+#To create the watcher: I'm just grabbing the ip address that has the most documents, but obviously you can change this query to do whatever you want.  
+PUT _watcher/watch/get_max_ipaddress
+{
+  "trigger": {
+    "schedule": {
+      "interval": "5m"
+    }
+  },
+  "input": {
+    "search": {
+      "request": {
+        "search_type": "query_then_fetch",
+        "indices": [
+          "kibana_sample_data_logs*"
+        ],
+        "rest_total_hits_as_int": true,
+        "body": {
+          "size": 0,
+          "aggs": {
+            "max_ip": {
+              "terms": {
+                "field": "ip",
+                "size": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "condition": {
+    "compare": {
+      "ctx.payload.hits.total": {
+        "gte": 0
+      }
+    }
+  },
+  "actions": {
+    "my_indexing_operation": {
+      "index": {
+        "index": "maxip",
+        "doc_id": "1"
+      }
+    }
+  }
+}
+
+#The above will create a 1 doc index with the following mapping. Notice it creates a field called aggregations.max_ip.buckets.key.  That's the field that contains the value you will need in your outer query
+/*
+{
+  "maxip" : {
+    "mappings" : {
+      "properties" : {
+        "_shards" : {
+          "properties" : {
+            "failed" : {
+              "type" : "long"
+            },
+            "skipped" : {
+              "type" : "long"
+            },
+            "successful" : {
+              "type" : "long"
+            },
+            "total" : {
+              "type" : "long"
+            }
+          }
+        },
+        "aggregations" : {
+          "properties" : {
+            "max_ip" : {
+              "properties" : {
+                "buckets" : {
+                  "properties" : {
+                    "doc_count" : {
+                      "type" : "long"
+                    },
+                    "key" : {
+                      "type" : "text",
+                      "fields" : {
+                        "keyword" : {
+                          "type" : "keyword",
+                          "ignore_above" : 256
+                        }
+                      }
+                    }
+                  }
+                },
+                "doc_count_error_upper_bound" : {
+                  "type" : "long"
+                },
+                "sum_other_doc_count" : {
+                  "type" : "long"
+                }
+              }
+            }
+          }
+        },
+        "hits" : {
+          "properties" : {
+            "total" : {
+              "type" : "long"
+            }
+          }
+        },
+        "timed_out" : {
+          "type" : "boolean"
+        },
+        "took" : {
+          "type" : "long"
+        }
+      }
+    }
+  }
+}
+/*
+#Now you can use the Terms query and point to the value of the 1 document to use as the criteria
+GET kibana_sample_data_logs*/_search
+{
+  "query": {
+    "terms": {
+      "ip": {
+        "index": "maxip",
+        "id": "1",
+        "path": "aggregations.max_ip.buckets.key"
+      }
+    }
+  }
+}
+
