@@ -1,0 +1,572 @@
+GET _cat/indices?v&h=index&s=index
+
+PUT nested_blogs1
+{
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "keyword"
+      },
+      "title": {
+        "type": "text",
+        "analyzer": "english",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "products": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "authors": {
+        "type": "nested",
+        "properties": {
+          "name": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword"
+              }
+            }
+          },
+          "company": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword"
+                  }
+                }
+              },
+              "country": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword"
+                      }
+                    }
+                  },
+                  "code": {
+                    "type": "keyword"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+POST nested_blogs1/_bulk
+{"index":{"_id":1}}
+{"id":"1","title":"Time Series with Kibana","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}}]}
+{"index":{"_id":2}}
+{"id":"2","title":"Memory Issues We'll Remember","authors":[{"name":"Chris Overton","company":{"country":{"code":"FR","name":"France"},"name":"Globex"}},{"name":"Alex Brasetvik","company":{"country":{"code":"BR","name":"Brazil"},"name":"Elastic"}}]}
+{"index":{"_id":3}}
+{"id":"3","title":"Making Kibana Accessible","authors":[{"name":"Alex Francoeur","company":{"country":{"code":"FR","name":"France"},"name":"ACME"}},{"name":"Chris Cowan","company":{"country":{"code":"NI","name":"Nigeria"},"name":"Elastic"}},{"name":"Tim Roes","company":{"country":{"code":"JP","name":"Japan"},"name":"Soylent"}}]}
+
+
+GET nested_blogs1/_search
+{
+  "query": {
+    "nested": {
+      "path": "authors",
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "match": {
+                "authors.name": "alex"
+              }
+            },
+            {
+              "match": {
+                "authors.company.name.keyword": "Elastic"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+EXAM PREP: To solve the problem discussed above, you need to write your own custom analyzer that handles text like C++ and IT in a better manner. Create an index named analysis_test that has an analyzer named my_analyzer which satisfies the following:
+
+allow queries for C++ to match only documents that contain C++ (TIP: transform c++ and C++ into cpp)
+
+allow queries for IT to match only documents that contain IT and not it. (TIP: transform IT into _IT_ before lowercase)
+
+GET _cat/indices?v&h=index&s=index
+
+PUT analysis_test
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_analyzer": { 
+          "type": "custom",
+          "char_filter": [
+            "prog_lang"
+          ],
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "stop",
+            "my_stop"
+          ]
+        }
+      },
+      "char_filter": {
+        "prog_lang": { 
+          "type": "mapping",
+          "mappings": [
+            "IT => _IT_",
+            "C++ => cpp",
+            "c++ => cpp"
+          ]
+        }
+      },
+      "filter": {
+        "my_stop": { 
+          "type": "stop",
+          "stopwords": ["can, we, our, you, your, all"]
+        }
+      }
+    }
+  }
+}
+
+
+EXAM PREP: Now, setup a new blogs index with the same data, but using a better, more appropriate analyzer:
+
+Create a new index named blogs_analyzed that uses your custom my_analyzer from the previous step
+
+Use the mappings from blogs and add a multi-field to both the content and title fields named my_analyzer. These multi-fields should be of type text and set the analyzer to my_analyzer.
+
+
+PUT blogs_analyzed1
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_analyzer": { 
+          "type": "custom",
+          "char_filter": [
+            "prog_lang"
+          ],
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "stop",
+            "my_stop"
+          ]
+        }
+      },
+      "char_filter": {
+        "prog_lang": { 
+          "type": "mapping",
+          "mappings": [
+            "IT => _IT_",
+            "C++ => cpp",
+            "c++ => cpp"
+          ]
+        }
+      },
+      "filter": {
+        "my_stop": { 
+          "type": "stop",
+          "stopwords": ["can, we, our, you, your, all"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "title": {
+        "type": "text",
+        "fields": {
+          "my_analyzer": {
+            "type": "text",
+            "analyzer": "my_analyzer"
+          }
+        }
+      },
+      "content": {
+        "type": "text",
+        "fields": {
+          "my_analyzer": {
+            "type": "text",
+            "analyzer": "my_analyzer"
+          }
+        }
+      }
+    }
+  }
+}
+
+EXAM PREP: Using an _update_by_query, update all the documents in blogs_fixed with a reindexBatch equal to 1. Use the script given above to update the reindexBatch to 2 on all documents.
+
+GET vehicles/_search
+{
+  "query": {
+    "match": {
+      "color": "white"
+    }
+  }
+}
+POST vehicles/_update_by_query
+{
+  "query": {
+    "match": {
+      "color": "white"
+    }
+  },
+  "script": {
+    "source": "ctx._source.reindexBatch = 2",
+    "lang": "painless"
+  }
+}
+
+
+
+POST vehicles/_update_by_query
+{
+  "query": {
+    "match": {
+      "reindexBatch": "2"
+    }
+  },
+  "script": {
+    "source": "ctx._source.reindexBatch = 3",
+    "lang": "painless"
+  }
+}
+
+
+EXAM PREP: The locales field is empty for 1,290 documents, which is over 90% of the index. These particular documents should have the English locale "en-en". Also, as discussed in the lecture, this field would be much easier to search and aggregate on if it was indexed as an array instead of a single comma-separated list of values. To fix locales, write a pipeline that satisfies the following criteria:
+
+The name of the pipeline is fix_locales
+
+The first processor is a set processor that checks if the locales field is an empty string. If it is empty, assign it the value "en-en". If it is not empty, leave the field as is. TIP: To check if a field is empty you can use ctx['field'].empty in the if option of your processor.
+
+The second set processor should set reindexBatch to 3 for every document
+
+The third processor is a split processor that splits the locales field into an array, using a comma as the separator
+
+
+PUT _ingest/pipeline/fix_locales
+{
+  "description" : "describe pipeline",
+  "processors" : [
+    {
+      "set" : {
+        "if": "ctx['locales'].empty", 
+        "field": "locales",
+        "value": "en-en"
+      },
+      "set" : {
+        "field": "reindexBatch",
+        "value": "3"
+      },
+      "split": {
+        "field": "locales",
+        "separator": ","
+      }
+    }
+  ]
+}
+
+EXAM PREP: Your front-end developer forgot to tell you that he is expecting locales to be separated by an underscore (_) instead of a hyphen (-). For instance, en-en should be en_en. To fix it, write a pipeline that satisfies the following criteria:
+
+The name of the pipeline is underscore_locales
+
+Using a foreach processor and a gsub processor, replace all the hyphen by underscore in the locales.
+
+The second set processor should set reindexBatch equal to 4 for every document
+
+
+PUT _ingest/pipeline/underscore_locales
+{
+  "description": "this one",
+  "processors": [
+    {
+      "foreach": {
+        "field": "locales",
+        "processor": {
+          "gsub": {
+            "field": "_ingest._value",
+            "pattern": "-",
+            "replacement": "_"
+          }
+        }
+      }
+    },
+    {
+      "set": {
+        "field": "reindexBatch",
+        "value": 4
+      }
+    }
+  ]
+}
+
+POST _ingest/pipeline/underscore_locales/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "locales": [
+            "de-de",
+            "fr-fr",
+            "ja-jp",
+            "ko-kr",
+            "zh-chs"
+          ]
+      }
+    }
+  ]
+}
+
+EXAM PREP: Define an ingest pipeline that satisfies the following criteria:
+
+The name of the pipeline is fix_seo_title
+
+Add a script processor that checks if the seo_title is equal to an empty string "". If it is, set seo_title to the value of the document’s title field. TIP: As you are going to run this script in an ingest pipeline, the syntax for accessing the fields of a document is ctx['field_name'] (without the _source). For example, to access the seo_title in your script, use ctx['seo_title'].
+
+Set the value of reindexBatch to 5 for every document
+
+
+PUT _ingest/pipeline/fix_seo_title
+{
+  "description": "this one",
+  "processors": [
+    {
+      "script": {
+        "source": "if(ctx['seo_title']==''){ ctx['seo_title'] = ctx['title']}"
+      }
+    },
+    {
+      "set": {
+        "field": "reindexBatch",
+        "value": 5
+      }
+    }
+  ]
+}
+
+POST _ingest/pipeline/fix_seo_title/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "seo_title": "",
+        "title": "this is a title title"
+      }
+    },
+    {
+      "_source": {
+         "seo_title": "I am a seo title"
+      }
+    }
+  ]
+}
+
+EXAM PREP: Run an _update_by_query on blogs_fixed, sending each document through your fix_seo_title pipeline. Your update by query should only update documents that have a reindexBatch value equal to 4. You should see that all 1,356 documents are updated.
+
+
+
+POST blogs_fixed/_update_by_query?pipeline=fix_seo_title
+{
+ "query": {
+   "match": {
+     "reindexBatch": 4
+    }
+  }
+}
+
+EXAM PREP: Your current cluster has three indices containing the web access logs. Define an alias named access_logs that points to all three logs_server* indices.
+
+
+rename an alias
+POST /_aliases
+{
+  "actions": [
+     {
+      "add": {
+        "index": "logs_server1",
+        "alias": "access_logs"
+      }
+    },
+     {
+      "add": {
+        "index": "logs_server2",
+        "alias": "access_logs"
+      }
+    },
+    {
+      "add": {
+        "index": "logs_server3",
+        "alias": "access_logs"
+      }
+    }
+  ]
+}
+
+EXAM PREP: Configure logs_server3 to be the write index in your current alias using the is_write_index parameters and try to index the document again.
+POST /_aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "blog_temp1",
+        "alias": "access_logs",
+        "is_write_index": true
+      }
+    }
+  ]
+}
+
+GET logs_server1
+
+EXAM PREP: Define an index template named access_logs_template that matches logs_server* and has the same index settings and mappings as your three current logs_server* indices. Use 10 for the order value.
+
+PUT _template/access_logs_template
+{
+  "index_patterns": ["logs_server*"],
+  "order" : 10,
+  "settings": {
+    "number_of_shards": 1
+  },
+  "mappings": {
+    "_source": {
+      "enabled": false
+    },
+    "properties": {
+      "host_name": {
+        "type": "keyword"
+      },
+      "created_at": {
+        "type": "date",
+        "format": "EEE MMM dd HH:mm:ss Z yyyy"
+      }
+    }
+  }
+}
+
+
+EXAM PREP: Now, you are going to create a search template for the following query, which finds the number of visitors to a blog on a specific day.
+
+Make a search template for this query named daily_hits that uses the following parameters:
+
+url: to represent the value of originalUrl.keyword
+
+start_date: for the day we are searching for blogs
+
+end_date: for the upper end of our date range
+
+POST _scripts/daily_hits
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "@timestamp": {
+                  "gte": "{{start_date}}",
+                  "lt": "{{end_date}}"
+                }
+              }
+            },
+            {
+              "match": {
+                "originalUrl.keyword": "{{url}}"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+url: "/blog/brewing-in-beats-postgresql-module-in-filebeat"
+
+start_date: "2017-08-11"
+
+end_date: "2017-08-12"
+
+GET _search/template
+{
+    "id": "daily_hits", 
+    "params": {
+        "url": "/blog/brewing-in-beats-postgresql-module-in-filebeat",
+        "start_date": "2017-08-11",
+        "end_date": "2017-08-12"
+    }
+}
+EXAM PREP: Next, you are going to work with dynamic templates. Create a new index named surveys that satisfies the following criteria:
+
+The job_title field is mapped as text and keyword
+
+The miles_travelled field is mapped as an integer_range
+
+Any field name that ends in _rating is dynamically mapped as an integer
+
+Any string field that is not already in the mapping is dynamically mapped as keyword only, and is not indexed
+
+
+
+PUT surveys
+{
+  "mappings": {
+    "properties": {
+      "job_title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "miles_travelled": {
+        "type": "integer_range"
+      }
+    },
+    "dynamic_templates": [
+      {
+        "ratings": {
+          "match": "*_rating",
+          "mapping": {
+            "type": "integer"
+          }
+        }
+      },
+      {
+        "strings": {
+          "match_mapping_type": "string",
+          "mapping": {
+            "type": "keyword",
+            "enabled": false
+          }
+        }
+      }
+    ]
+  }
+}

@@ -128,7 +128,8 @@ export default class Terms extends Component {
                 <b>convert</b>: changes the type of a field
               </li>
               <li>
-                <b>set</b>: sets the values of a field
+                <b>set</b>: sets the values of a field (also can take an
+                optional if property like "if": ctx['locales'].empty)
               </li>
               <li>
                 <b>remove</b>: deletes a field from a document

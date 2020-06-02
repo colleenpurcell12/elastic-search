@@ -34,6 +34,27 @@ export default class OtherExamRequirements extends Component {
                   src={ExamAnswersOnlyJSON}
                 />
               </li>
+              hot/warm architecture (NOT IN DOCUMENTATION
+              <li>
+                Watch out about hot/warm architecture because it's not exactly
+                in the docs, configuring nodes' size attribute is though so you
+                can infer from there.
+                <textarea
+                  rows={4}
+                  defaultValue={`
+          node.attr.size: medium
+          
+          PUT test/_settings
+          {
+            "index.routing.allocation.include.size": "big,medium"
+          }
+            `}
+                />
+              </li>
+              <li>
+                always check your ingest pipelines work using the _simulate
+                endpoint first
+              </li>
               <li>
                 {" "}
                 check to make sure your computer is compatible:

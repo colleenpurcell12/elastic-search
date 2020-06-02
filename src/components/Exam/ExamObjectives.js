@@ -103,7 +103,7 @@ export default class ExamObjectives extends Component {
               </div>
             </li>
             <li className="exam-objective">
-              Define and use index aliasefine and use index aliases
+              Define and use index aliases
               <div className={sectionClassName}>
                 (<span className="last-section">ElasticTwoPart2</span>
                 /6AdvTips2IndexAliasesPart1)
@@ -266,8 +266,8 @@ export default class ExamObjectives extends Component {
               </div>
             </li>
             <li className="exam-objective">
-              Configure an index so that itnfigure an index so that it properly
-              maintains the relationships of nested arrays of objects
+              Configure an index so that it properly maintains the relationships
+              of nested arrays of objects
               <div className={sectionClassName}>
                 (<span className="second-section">ElasticTwo</span>
                 /1DM2NestedAndJoinDataTypes

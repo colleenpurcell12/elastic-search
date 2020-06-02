@@ -136,11 +136,11 @@ export default class AdvTips2 extends Component {
               How will the templates below be applied to a new index, named
               logs-2018-06?
               <textarea
-                rows={28}
+                rows={30}
                 defaultValue={`
     PUT _template/logs_template
       {
-        "index_patterns": "logs-*",         <-- ARRAY?
+        "index_patterns": "logs-*",         <-- doesnt have to be an array
         "order": 1,
         "settings": {
           "number_of_shards": 4,

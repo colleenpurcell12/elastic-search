@@ -121,7 +121,7 @@ export default function ElasticTwoPart2({ match }) {
               </li>
               <li>
                 <NavLink to={`${match.url}/AdvTips2IndexTemplatesPart2`}>
-                  2b Template Aliases
+                  2b Index Template
                 </NavLink>
               </li>
               <li>
