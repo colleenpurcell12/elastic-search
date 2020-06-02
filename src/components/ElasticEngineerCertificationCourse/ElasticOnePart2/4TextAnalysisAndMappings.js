@@ -339,11 +339,6 @@ export default class MappingsAndTextAnalysis extends Component {
           </div>
 
           <div className="pair">
-            <div className="question">Dynamic Mapping</div>
-            <div className="answer">???</div>
-          </div>
-
-          <div className="pair">
             <div className="question">
               Which field has doc_values auto enabled?
             </div>

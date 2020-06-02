@@ -3,11 +3,6 @@
 
 ### Contents
 
-
-## Elastic Search Certification Exam Prep
-
-### Contents
-
 * Notes from Elastic's Engineer I and Engineer II Certification courses
 * Lab queries from the Cert courses
 * Notes from Linux Academy's Elastic Certification Exam Prep course

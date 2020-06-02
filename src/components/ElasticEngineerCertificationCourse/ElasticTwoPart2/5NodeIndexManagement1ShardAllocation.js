@@ -20,14 +20,21 @@ export default class NodeIndexManagement1ShardAllocation extends Component {
             }}
           >
             <li>
-              Allocate the shards of an index to specific nodes based on a given
-              set of requirements
+              ** Allocate the shards of an index to specific nodes based on a
+              given set of requirements
             </li>
             <li>
-              Configure the nodes of a cluster to satisfy a given set of
+              ** Configure the nodes of a cluster to satisfy a given set of
               requirements
             </li>
-            <li>Configure a cluster for use with a hot/warm architecture</li>
+            <li>
+              ** Configure a cluster for use with a hot/warm architecture (NOT
+              IN DOCUMENTATION) find it under "shard allocation filtering"
+              <div>
+                » Docs » Index modules » Index Shard Allocation » Index-level
+                shard allocation filtering
+              </div>
+            </li>
           </ul>
         </div>
         <br />

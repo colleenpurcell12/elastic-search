@@ -78,7 +78,7 @@ export default class MonitoringandTroubleshooting extends Component {
               What are some good ways to query status/health?
             </div>
             <textarea
-              rows={13}
+              rows={15}
               defaultValue={`
     GET _cluster/health
     GET /_cluster/allocation/explain

@@ -19,6 +19,7 @@ export default class NotSureIfOnExam extends Component {
             ILM Index Life Cycle Management (As of May 2020, but they DO plan to
             eventually have it on the exam
           </li>
+          <li>Common Schema</li>
           <li>Cross Cluster Replication (CCR)</li>
         </ul>
       </div>

@@ -3174,7 +3174,8 @@ PUT surveys
 
 ALL EXAM PREP Module 5 Questions
 
-EXAM PREP: Then, configure the node settings in the appropriate config files (either elasticsearch.yml or jvm.options) to have the following:
+EXAM PREP: Then, configure the node settings in the appropriate config files (either elasticsearch.yml 
+or jvm.options) to have the following:
 
 it joins my_cluster
 

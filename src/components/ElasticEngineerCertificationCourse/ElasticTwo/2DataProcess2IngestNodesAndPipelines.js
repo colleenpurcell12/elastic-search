@@ -28,12 +28,12 @@ export default class DataProcess2IngestNodesAndPipelines extends Component {
               document, 4) or in the settings of an index
             </div>
             <textarea
-              rows={20}
+              rows={32}
               defaultValue={`
-    1) POST blogs_fixed/_update_by_query?pipeline=underscore_locales
+ 1) POST blogs_fixed/_update_by_query?pipeline=underscore_locales
 
-    2) 
-    POST _reindex
+    
+ 2) POST _reindex
     {
       "source": {
         "index": "my_index"
@@ -44,15 +44,13 @@ export default class DataProcess2IngestNodesAndPipelines extends Component {
       }
     }
 
-    3) 
-    PUT my_index/_doc/1?pipeline=my_pipeline
+ 3) PUT my_index/_doc/1?pipeline=my_pipeline
     {
       "author": "Monica Sarbu",
       "category": "Brewing in Beats"
     }
 
-    4)
-    PUT my_index
+ 4) PUT my_index
     {
       "settings": {
         "default_pipeline": "my_pipeline"
@@ -71,7 +69,7 @@ export default class DataProcess2IngestNodesAndPipelines extends Component {
               processor, the field is _ingest._value!!
             </div>
             <textarea
-              rows={26}
+              rows={28}
               defaultValue={`
           
     PUT _ingest/pipeline/underscore_locales1
@@ -122,7 +120,7 @@ export default class DataProcess2IngestNodesAndPipelines extends Component {
             one so GET familiar "Exma: Create a processor that does XYZ"
             <div>Put in a processor into our _ingest API</div>
             <textarea
-              style={{ height: "190px", width: "750px" }}
+              rows={15}
               defaultValue={`
               PUT _ingest/pipeline/my-pipeline-id
               {
@@ -136,9 +134,13 @@ export default class DataProcess2IngestNodesAndPipelines extends Component {
               }
             `}
             />
-            <div>Set processor takes field and value to give</div>
+            <br />
+            <div>
+              Set processor takes a field and a value that the field will be set
+              to
+            </div>
             <textarea
-              style={{ height: "190px", width: "750px" }}
+              rows={15}
               defaultValue={`
             PUT _ingest/pipeline/my_pipeline
               {
@@ -153,12 +155,13 @@ export default class DataProcess2IngestNodesAndPipelines extends Component {
               }
             `}
             />
+            <br />
             <div>
-              Use _simulate endpoint to test the pipeline. Lke a GET request, it
-              will show you what it will do to the docs.
+              Use _simulate endpoint to test the pipeline. Like a GET request,
+              it will show you what it will do to the docs.
             </div>
             <textarea
-              style={{ height: "190px", width: "750px" }}
+              rows={15}
               defaultValue={`
             POST _ingest/pipeline/my_pipeline/_simulate
             {
@@ -173,6 +176,7 @@ export default class DataProcess2IngestNodesAndPipelines extends Component {
             }
             `}
             />
+            <br />
             <div>
               Use a pipeline when indexing new documents
               <br /> Reindexing use processor, like split things into an array
@@ -206,7 +210,7 @@ export default class DataProcess2IngestNodesAndPipelines extends Component {
             </div>
 
             <textarea
-              style={{ height: "190px", width: "750px" }}
+              rows={12}
               defaultValue={`
             PUT blogs_fixed
               {
@@ -216,6 +220,7 @@ export default class DataProcess2IngestNodesAndPipelines extends Component {
               }
             `}
             />
+            <br />
             <div className="answer">
               Setting default pipeline for new documents being indexed.
             </div>
