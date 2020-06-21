@@ -40,7 +40,7 @@ export default class OtherExamRequirements extends Component {
                 in the docs, configuring nodes' size attribute is though so you
                 can infer from there.
                 <textarea
-                  rows={4}
+                  rows={8}
                   defaultValue={`
           node.attr.size: medium
           
@@ -50,6 +50,7 @@ export default class OtherExamRequirements extends Component {
           }
             `}
                 />
+                <br />
               </li>
               <li>
                 always check your ingest pipelines work using the _simulate
@@ -153,6 +154,7 @@ export default class OtherExamRequirements extends Component {
     }
               `}
               />
+              <br />
             </li>
 
             <li>
