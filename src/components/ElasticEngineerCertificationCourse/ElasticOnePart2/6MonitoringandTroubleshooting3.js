@@ -8,7 +8,7 @@ export default class NodesAndShards extends Component {
           Module 5 Monitoring and Troubleshooting: Lesson 6.3 Diagnosing
           Performance Issues
         </h2>
-        // HIDDEN FROM APP
+        {/* // THIS COMPONENT is HIDDEN FROM APP */}
         {/* slides 282-300 */}
         <h3>** NOT ON EXAM</h3>
         <div className="summary">

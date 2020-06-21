@@ -9,7 +9,7 @@ export default class NotSureIfOnExam extends Component {
           <li>Setting up a cluster</li>
           <li>Securing a cluster (xpack.security.enabled: true)</li>
         </ul>
-        {/* <h2>Things Im NOT sure are on the exam or not</h2>
+        {/* <h2>Things Im not sure are on the exam or not</h2>
         <ul>
           <li>_mget and _bulk</li>
         </ul> */}
